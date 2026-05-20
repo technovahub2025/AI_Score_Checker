@@ -4,6 +4,7 @@ const { sendError, sendSuccess } = require('../utils/responseHelper');
 const { uploadBuffer } = require('../services/cloudinaryService');
 const { extractTextFromUpload, normalizeWhitespace } = require('../services/scanService');
 const { scoreContent } = require('../services/scoringEngine');
+const { pruneScansByUser } = require('../services/scanRetentionService');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -35,6 +36,8 @@ const uploadScan = async (req, res, next) => {
 
     const scan = await Scan.create({
       inputType: 'file',
+      fileName: req.file.originalname,
+      fileType: req.file.mimetype,
       fileUrl: uploaded.secure_url,
       filePublicId: uploaded.public_id,
       inputText: extractedText,
@@ -45,11 +48,20 @@ const uploadScan = async (req, res, next) => {
     await scan.save();
 
     scan.score = result.totalScore;
+    scan.contentScore = result.totalScore;
+    scan.technicalScore = 0;
     scan.explanation = result.explanation;
     scan.breakdown = result.breakdown;
     scan.recommendations = result.recommendations;
+    scan.analysisSource = 'backend';
     scan.status = 'completed';
     await scan.save();
+
+    try {
+      await pruneScansByUser({ userId: scan.userId });
+    } catch (cleanupError) {
+      void cleanupError;
+    }
 
     return sendSuccess(res, scan, 201);
   } catch (error) {

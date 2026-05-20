@@ -1,55 +1,34 @@
-# AI Score Checker
+# Grand Helm
 
-Monorepo for the AI Visibility Score Checker MVP.
+Monorepo for the Grand Helm AI Visibility Score Checker SPA.
 
 ## Structure
 
-- `AI_SCORE_BACKEND` - Node.js + Express + MongoDB + Cloudinary API
-- `AI_SCORE_FRONTEND` - React + Vite UI
+- `AI_SCORE_BACKEND` - Legacy backend folder from the previous build
+- `AI_SCORE_FRONTEND` - React + Vite SPA
 
 ## Setup
 
-1. Copy the env examples into real env files:
-   - `AI_SCORE_BACKEND/.env`
-   - `AI_SCORE_FRONTEND/.env`
-2. Install dependencies in each folder:
-   - `cd AI_SCORE_BACKEND && npm install`
-   - `cd AI_SCORE_FRONTEND && npm install`
-3. Start the backend:
-   - `cd AI_SCORE_BACKEND && npm run dev`
-4. Start the frontend:
+1. Install the frontend dependencies:
    - `cd AI_SCORE_FRONTEND && npm run dev`
+2. Open the app in the browser shown by Vite.
 
 ## Environment Variables
 
-### Backend
-
-- `PORT=5000`
-- `MONGODB_URI=your_mongodb_connection_string`
-- `CLOUDINARY_CLOUD_NAME=`
-- `CLOUDINARY_API_KEY=`
-- `CLOUDINARY_API_SECRET=`
-- `CLIENT_URL=http://localhost:5173`
-- `NODE_ENV=development`
-
 ### Frontend
 
-- `VITE_API_URL=http://localhost:5000`
+- `VITE_APP_NAME=Technova Hub`
+- `VITE_API_BASE_URL=http://localhost:5000`
 
 ## API
 
-- `POST /api/scan`
-- `GET /api/scan/:id`
-- `GET /api/history`
-- `POST /api/upload`
-
 ## Notes
 
-- URL scans fetch and score the page content synchronously.
-- Text scans require at least 50 characters.
-- File uploads support JPEG, PNG, and PDF. PDFs are text-extracted before scoring. Images are stored in Cloudinary without OCR.
+- URL scans are best-effort client-side analyses and fall back to the URL text if remote content cannot be read.
+- Text scans require at least 50 characters unless a file is attached.
+- File uploads support JPEG, PNG, and PDF. PDFs are text-extracted before scoring. Images are analyzed from filename and metadata only.
+- URL scans also use the backend to collect technical SEO signals such as `robots.txt`, sitemap references, canonical tags, meta tags, and schema when the API is available.
 
 ## Build Output
 
 - Frontend: `cd AI_SCORE_FRONTEND && npm run build`
-- Backend: `cd AI_SCORE_BACKEND && npm start`

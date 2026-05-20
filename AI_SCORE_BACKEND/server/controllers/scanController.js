@@ -1,8 +1,10 @@
 const Scan = require('../models/Scan');
 const { validateScanInput, isValidObjectId } = require('../utils/validators');
 const { sendError, sendSuccess } = require('../utils/responseHelper');
-const { extractTextFromUrl, normalizeWhitespace } = require('../services/scanService');
+const { normalizeWhitespace } = require('../services/scanService');
 const { scoreContent } = require('../services/scoringEngine');
+const { analyzeTechnicalSeo } = require('../services/technicalSeoService');
+const { pruneScansByUser } = require('../services/scanRetentionService');
 
 const createScan = async (req, res, next) => {
   try {
@@ -23,19 +25,38 @@ const createScan = async (req, res, next) => {
     scan.status = 'processing';
     await scan.save();
 
-    const sourceText =
-      inputType === 'url'
-        ? await extractTextFromUrl(inputUrl.trim())
-        : normalizeWhitespace(inputText);
-    const result = scoreContent(sourceText);
+    let sourceText = normalizeWhitespace(inputText);
+    let technicalSeo = null;
+
+    if (inputType === 'url') {
+      const analysis = await analyzeTechnicalSeo(inputUrl.trim());
+      sourceText = normalizeWhitespace(analysis.visibleText || '');
+      technicalSeo = analysis.technicalSeo;
+    }
+
+    const scoreSource = inputType === 'url' ? [inputUrl.trim(), sourceText].filter(Boolean).join('\n\n') : sourceText;
+    const result = scoreContent(scoreSource);
+    const contentScore = result.totalScore;
+    const technicalScore = technicalSeo?.score || 0;
+    const totalScore = inputType === 'url' ? Math.round(contentScore * 0.75 + technicalScore * 0.25) : contentScore;
 
     scan.inputText = sourceText;
-    scan.score = result.totalScore;
+    scan.contentScore = contentScore;
+    scan.technicalScore = technicalScore;
+    scan.score = totalScore;
     scan.explanation = result.explanation;
     scan.breakdown = result.breakdown;
+    scan.technicalSeo = technicalSeo;
     scan.recommendations = result.recommendations;
+    scan.analysisSource = inputType === 'url' ? 'hybrid' : 'backend';
     scan.status = 'completed';
     await scan.save();
+
+    try {
+      await pruneScansByUser({ userId: scan.userId });
+    } catch (cleanupError) {
+      void cleanupError;
+    }
 
     return sendSuccess(res, scan, 201);
   } catch (error) {
@@ -67,15 +88,16 @@ const getScanById = async (req, res, next) => {
 const getHistory = async (req, res, next) => {
   try {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 50);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 200);
     const skip = (page - 1) * limit;
+    const userId = String(req.query.userId || 'anonymous');
 
     const [scans, total] = await Promise.all([
-      Scan.find().sort({ createdAt: -1 }).skip(skip).limit(limit),
-      Scan.countDocuments()
+      Scan.find({ userId }).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Scan.countDocuments({ userId })
     ]);
 
-    return sendSuccess(res, { scans, total, page, limit }, 200);
+    return sendSuccess(res, { scans, total, page, limit, hasMore: skip + scans.length < total }, 200);
   } catch (error) {
     return next(error);
   }

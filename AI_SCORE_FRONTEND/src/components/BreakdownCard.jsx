@@ -1,21 +1,30 @@
+import { memo } from 'react';
+import { motion } from 'framer-motion';
+
 const BreakdownCard = ({ item }) => {
-  const weighted = Math.round((item.score / 100) * item.weight);
+  const progress = `${Math.max(0, Math.min(100, item.score))}%`;
 
   return (
-    <article className="card breakdown-card">
-      <div className="breakdown-top">
-        <h3>{item.factor}</h3>
-        <span className="badge">{weighted}/{item.weight}</span>
+    <motion.article
+      className="glass-panel rounded-[1.5rem] p-5 transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(24,18,44,0.08)]"
+      whileHover={{ y: -4 }}
+    >
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="text-sm font-medium text-text">{item.label}</h3>
+        <span className="rounded-full bg-accent-purple/10 px-3 py-1 text-xs font-medium text-accent-purple">
+          {item.score}/100
+        </span>
       </div>
-      <div className="score-bar">
-        <div className="score-bar-fill" style={{ width: `${item.score}%` }} />
+      <div className="h-2 rounded-full bg-[rgba(29,24,48,0.08)]">
+        <div
+          className="h-2 rounded-full bg-gradient-to-r from-accent-purple to-accent-cyan transition-all duration-700"
+          style={{ width: progress }}
+        />
       </div>
-      <p className="muted">
-        Raw score: {item.score}/100
-      </p>
-      <p>{item.explanation}</p>
-    </article>
+      <div className="mt-3 text-xs text-text-muted">Weight {item.weight}%</div>
+      <p className="mt-3 text-sm leading-6 text-text-muted">{item.explanation}</p>
+    </motion.article>
   );
 };
 
-export default BreakdownCard;
+export default memo(BreakdownCard);
