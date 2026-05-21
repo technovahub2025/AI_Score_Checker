@@ -16,6 +16,8 @@ const QuickScanCard = () => {
 
   const isValid = useMemo(() => {
     if (file) return true;
+    // Temporary: allow both http and https URLs while deployment/testing is in progress.
+    // Tighten this back to https-only later if you want to enforce secure URLs.
     if (tab === 'url') return /^https?:\/\/.+/i.test(url.trim());
     return sanitizeInput(text).length >= 50;
   }, [file, tab, url, text]);
@@ -89,7 +91,7 @@ const QuickScanCard = () => {
                 />
               </div>
             </label>
-            <p className="mt-4 text-xs text-text-muted">Enter a URL starting with https://</p>
+            <p className="mt-4 text-xs text-text-muted">Enter a URL starting with http:// or https://</p>
           </>
         ) : null}
 
