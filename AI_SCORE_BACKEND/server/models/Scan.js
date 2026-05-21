@@ -32,7 +32,11 @@ const TechnicalSeoSchema = new mongoose.Schema(
       canonicalUrl: { type: String },
       robotsUrl: { type: String },
       sitemapUrls: [{ type: String }],
-      schemaCount: { type: Number }
+      schemaCount: { type: Number },
+      analysisMode: { type: String },
+      title: { type: String },
+      description: { type: String },
+      contentLength: { type: Number }
     }
   },
   { _id: false }
@@ -54,6 +58,8 @@ const ScanSchema = new mongoose.Schema(
     explanation: { type: String },
     breakdown: [BreakdownSchema],
     technicalSeo: TechnicalSeoSchema,
+    analysisCoverage: { type: String, enum: ['full', 'partial', 'blocked'], default: 'partial' },
+    analysisLimited: { type: Boolean, default: false },
     recommendations: [{ type: String }],
     analysisSource: { type: String, enum: ['local', 'hybrid', 'backend'], default: 'local' },
     status: {

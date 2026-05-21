@@ -8,6 +8,7 @@ const connectDB = require('./config/db');
 const scanRoutes = require('./routes/scanRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const errorHandler = require('./middleware/errorHandler');
+const { pruneScans } = require('./services/scanRetentionService');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -42,4 +43,16 @@ connectDB().then(() => {
   app.listen(port, () => {
     console.log(`Server running on port ${port}`);
   });
+
+  const RETENTION_SWEEP_MS = 24 * 60 * 60 * 1000;
+  const runRetentionSweep = async () => {
+    try {
+      await pruneScans();
+    } catch (error) {
+      console.error('Retention sweep failed:', error.message || error);
+    }
+  };
+
+  void runRetentionSweep();
+  setInterval(runRetentionSweep, RETENTION_SWEEP_MS);
 });

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useScans } from '../context/ScansContext';
+import QuickScanCard from '../components/QuickScanCard';
 import { formatDate, getScoreTone } from '../utils/formatters';
 
 const metrics = [
@@ -224,7 +225,7 @@ const LandingPage = () => {
               <div className="mt-8 flex flex-wrap gap-3">
                 <button
                   type="button"
-                  onClick={() => navigate('/scan')}
+                  onClick={() => navigate('/#quick-scan')}
                   className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-accent-purple to-accent-cyan px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(139,92,246,0.28)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_46px_rgba(139,92,246,0.32)]"
                 >
                   Check Your Score
@@ -239,49 +240,7 @@ const LandingPage = () => {
               </div>
             </div>
 
-            <motion.div whileHover={{ y: -4 }} className="glass-panel rounded-[1.6rem] p-5">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">Quick scan</p>
-                  <h3 className="mt-1 text-lg font-semibold text-text">Try a URL, text, or file</h3>
-                </div>
-                <div className="rounded-full bg-accent-purple/10 px-3 py-1 text-xs font-semibold text-accent-purple">
-                  5 dimensions
-                </div>
-              </div>
-
-              <div className="inline-flex w-full rounded-full border border-border bg-surfaceStrong p-1">
-                {['Check URL', 'Paste text', 'Upload file'].map((item, index) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => navigate('/scan')}
-                    className={[
-                      'flex-1 rounded-full px-4 py-2 text-sm font-medium transition',
-                      index === 0
-                        ? 'bg-bg-elevated text-text shadow-[0_10px_25px_rgba(24,18,44,0.08)]'
-                        : 'text-text-muted'
-                    ].join(' ')}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-4 rounded-[1.4rem] border border-border bg-bg-elevated p-4">
-                <div className="rounded-2xl border border-border bg-surfaceStrong px-4 py-3 text-sm text-text-muted">
-                  https://yourbrand.com
-                </div>
-                <p className="mt-4 text-xs text-text-muted">Enter a URL starting with https://</p>
-                <button
-                  type="button"
-                  onClick={() => navigate('/scan')}
-                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-accent-purple to-accent-cyan px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(139,92,246,0.24)]"
-                >
-                  Analyze now
-                </button>
-              </div>
-            </motion.div>
+            <QuickScanCard />
           </div>
         </div>
       </section>
@@ -444,7 +403,7 @@ const LandingPage = () => {
             </p>
             <button
               type="button"
-              onClick={() => navigate('/scan')}
+              onClick={() => navigate('/#quick-scan')}
               className="mt-6 inline-flex items-center justify-center rounded-2xl bg-bg-elevated px-5 py-3 text-sm font-semibold text-[#5b2bd9] transition hover:-translate-y-0.5"
             >
               Check your score now - it&apos;s free
@@ -511,7 +470,7 @@ const LandingPage = () => {
               <p className="text-sm text-text-muted">Your scan history will appear here.</p>
               <button
                 type="button"
-                onClick={() => navigate('/scan')}
+                onClick={() => navigate('/#quick-scan')}
                 className="mt-2 inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-accent-purple to-accent-cyan px-5 py-3 text-sm font-semibold text-white"
               >
                 Run your first scan

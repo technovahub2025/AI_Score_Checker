@@ -15,6 +15,16 @@ const ResultsPage = () => {
   const { getScanByIdRemote, getScanById } = useScans();
   const [scan, setScan] = useState(() => getScanById(id));
   const [loading, setLoading] = useState(!getScanById(id));
+  const coverage = scan?.analysisCoverage || scan?.technicalSeo?.evidence?.coverage || 'partial';
+  const coverageLabel =
+    coverage === 'full' ? 'Full coverage' : coverage === 'blocked' ? 'Blocked coverage' : 'Partial coverage';
+  const coverageTone =
+    coverage === 'full'
+      ? 'bg-emerald-500/10 text-emerald-700'
+      : coverage === 'blocked'
+        ? 'bg-slate-500/10 text-slate-700 dark:text-slate-200'
+        : 'bg-amber-500/10 text-amber-700';
+  const limited = Boolean(scan?.analysisLimited || coverage !== 'full');
 
   useEffect(() => {
     let active = true;
@@ -70,10 +80,20 @@ const ResultsPage = () => {
         <div className="flex flex-col justify-center">
           <p className="text-xs uppercase tracking-[0.25em] text-accent-purple">Technova Hub report</p>
           <h1 className="mt-3 text-3xl font-bold text-text md:text-4xl">AI visibility score</h1>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${coverageTone}`}>
+              {coverageLabel}
+            </span>
+            {limited ? (
+              <span className="rounded-full border border-border bg-bg-elevated px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                Score limited by reachability
+              </span>
+            ) : null}
+          </div>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-text-muted">{scan.explanation}</p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              to="/scan"
+              to="/#quick-scan"
               className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-accent-purple to-accent-cyan px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(139,92,246,0.24)]"
             >
               <ArrowLeft className="h-4 w-4" />

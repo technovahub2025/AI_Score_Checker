@@ -1,21 +1,25 @@
-import { Suspense, lazy, useMemo } from 'react';
+import { Suspense, lazy, useEffect, useMemo } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import Navbar from './components/Navbar';
 import SkeletonLoader from './components/SkeletonLoader';
 
 const LandingPage = lazy(() => import('./pages/LandingPage'));
-const ScanPage = lazy(() => import('./pages/ScanPage'));
 const HistoryPage = lazy(() => import('./pages/HistoryPage'));
 const ResultsPage = lazy(() => import('./pages/ResultsPage'));
 
 const App = () => {
   const location = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [location.pathname]);
+
   const routes = useMemo(
     () => (
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/scan" element={<ScanPage />} />
+        <Route path="/scan" element={<Navigate to="/#quick-scan" replace />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/results/:id" element={<ResultsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

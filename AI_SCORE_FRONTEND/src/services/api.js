@@ -110,6 +110,8 @@ const normalizeScan = (scan, { mode, input, file, sourceText, analysisSource, te
     explanation: scan.explanation || '',
     breakdown: scan.breakdown || [],
     technicalSeo: scan.technicalSeo || technicalSeo || null,
+    analysisCoverage: scan.analysisCoverage || technicalSeo?.evidence?.coverage || 'partial',
+    analysisLimited: Boolean(scan.analysisLimited ?? technicalSeo?.evidence?.limited ?? false),
     recommendations: scan.recommendations || [],
     analysisSource: scan.analysisSource || analysisSource || 'local'
   };

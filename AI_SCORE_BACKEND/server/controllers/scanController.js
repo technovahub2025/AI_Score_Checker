@@ -30,15 +30,16 @@ const createScan = async (req, res, next) => {
 
     if (inputType === 'url') {
       const analysis = await analyzeTechnicalSeo(inputUrl.trim());
-      sourceText = normalizeWhitespace(analysis.visibleText || '');
+      sourceText = normalizeWhitespace(analysis.contentText || analysis.visibleText || '');
       technicalSeo = analysis.technicalSeo;
     }
 
-    const scoreSource = inputType === 'url' ? [inputUrl.trim(), sourceText].filter(Boolean).join('\n\n') : sourceText;
+    const scoreSource = inputType === 'url' ? sourceText || inputUrl.trim() : sourceText;
     const result = scoreContent(scoreSource);
     const contentScore = result.totalScore;
     const technicalScore = technicalSeo?.score || 0;
     const totalScore = inputType === 'url' ? Math.round(contentScore * 0.75 + technicalScore * 0.25) : contentScore;
+    const technicalCoverage = technicalSeo?.coverage || 'full';
 
     scan.inputText = sourceText;
     scan.contentScore = contentScore;
@@ -47,6 +48,8 @@ const createScan = async (req, res, next) => {
     scan.explanation = result.explanation;
     scan.breakdown = result.breakdown;
     scan.technicalSeo = technicalSeo;
+    scan.analysisCoverage = technicalCoverage;
+    scan.analysisLimited = technicalCoverage !== 'full';
     scan.recommendations = result.recommendations;
     scan.analysisSource = inputType === 'url' ? 'hybrid' : 'backend';
     scan.status = 'completed';
@@ -91,6 +94,12 @@ const getHistory = async (req, res, next) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 200);
     const skip = (page - 1) * limit;
     const userId = String(req.query.userId || 'anonymous');
+
+    try {
+      await pruneScansByUser({ userId });
+    } catch (cleanupError) {
+      void cleanupError;
+    }
 
     const [scans, total] = await Promise.all([
       Scan.find({ userId }).sort({ createdAt: -1 }).skip(skip).limit(limit),
