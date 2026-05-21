@@ -1,0 +1,14 @@
+{
+  "name": "ai-score-monorepo",
+  "private": true,
+  "workspaces": [
+    "AI_SCORE_FRONTEND",
+    "AI_SCORE_BACKEND"
+  ],
+  "scripts": {
+    "build:frontend": "npm run build --workspace AI_SCORE_FRONTEND",
+    "start:backend": "npm run start --workspace AI_SCORE_BACKEND",
+    "dev:frontend": "npm run dev --workspace AI_SCORE_FRONTEND",
+    "dev:backend": "npm run dev --workspace AI_SCORE_BACKEND"
+  }
+}

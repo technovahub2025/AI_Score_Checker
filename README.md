@@ -1,17 +1,23 @@
-# Grand Helm
+# Technova Hub
 
-Monorepo for the Grand Helm AI Visibility Score Checker SPA.
+Monorepo for the Technova Hub AI Visibility Score Checker app.
 
 ## Structure
 
-- `AI_SCORE_BACKEND` - Legacy backend folder from the previous build
-- `AI_SCORE_FRONTEND` - React + Vite SPA
+- `AI_SCORE_BACKEND` - Node/Express backend
+- `AI_SCORE_FRONTEND` - React + Vite frontend
+- `package.json` - Monorepo scripts for local development and deploy helpers
+- `vercel.json` - SPA rewrite config for Vercel
+- `render.yaml` - Render blueprint for the backend service
 
 ## Setup
 
-1. Install the frontend dependencies:
-   - `cd AI_SCORE_FRONTEND && npm run dev`
-2. Open the app in the browser shown by Vite.
+1. Install dependencies from the repo root:
+   - `npm install`
+2. Run the frontend:
+   - `npm run dev:frontend`
+3. Run the backend:
+   - `npm run dev:backend`
 
 ## Environment Variables
 
@@ -20,7 +26,20 @@ Monorepo for the Grand Helm AI Visibility Score Checker SPA.
 - `VITE_APP_NAME=Technova Hub`
 - `VITE_API_BASE_URL=http://localhost:5000`
 
-## API
+### Backend
+
+- `PORT=5000`
+- `CLIENT_URL=http://localhost:5173`
+- `MONGODB_URI=...`
+- `CLOUDINARY_CLOUD_NAME=...`
+- `CLOUDINARY_API_KEY=...`
+- `CLOUDINARY_API_SECRET=...`
+
+### Deployment
+
+- Render backend: use `render.yaml` or point the service root at `AI_SCORE_BACKEND`
+- Vercel frontend: point the project at `AI_SCORE_FRONTEND` or use the repo root with `vercel.json`
+- Set `VITE_API_BASE_URL` on Vercel to your Render backend URL so the frontend can reach the API
 
 ## Notes
 
@@ -31,4 +50,4 @@ Monorepo for the Grand Helm AI Visibility Score Checker SPA.
 
 ## Build Output
 
-- Frontend: `cd AI_SCORE_FRONTEND && npm run build`
+- Frontend: `npm run build:frontend`

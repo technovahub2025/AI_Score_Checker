@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: ai-score-backend
+    env: node
+    plan: free
+    rootDir: AI_SCORE_BACKEND
+    buildCommand: npm install
+    startCommand: npm start
+    autoDeploy: true

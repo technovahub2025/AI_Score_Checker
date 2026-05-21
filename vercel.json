@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm run build:frontend",
+  "outputDirectory": "AI_SCORE_FRONTEND/dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
