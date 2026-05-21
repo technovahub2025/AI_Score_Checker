@@ -12,7 +12,7 @@ const uploadBuffer = (buffer, options = {}) =>
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         resource_type: 'auto',
-        folder: 'ai-score-checker',
+        folder: 'ai_score',
         ...options
       },
       (error, result) => {
