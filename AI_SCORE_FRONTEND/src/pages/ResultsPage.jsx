@@ -8,6 +8,7 @@ import RecommendationPanel from '../components/RecommendationPanel';
 import TechnicalSeoPanel from '../components/TechnicalSeoPanel';
 import ErrorState from '../components/ErrorState';
 import { useScans } from '../context/ScansContext';
+import { pageMotion, sectionReveal, staggerContainer, staggerItem } from '../utils/motion';
 
 const ResultsPage = () => {
   const { id } = useParams();
@@ -73,8 +74,14 @@ const ResultsPage = () => {
   }
 
   return (
-    <motion.div className="grid w-full gap-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-      <section className="grid gap-6 rounded-[2rem] border border-border bg-surface p-6 shadow-[0_18px_45px_rgba(24,18,44,0.08)] lg:grid-cols-[260px_1fr] lg:p-8">
+    <motion.div className="grid w-full gap-6" initial={pageMotion.initial} animate={pageMotion.animate} exit={pageMotion.exit} transition={pageMotion.transition}>
+      <motion.section
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        className="grid gap-6 rounded-[2rem] border border-border bg-surface p-6 shadow-[0_18px_45px_rgba(24,18,44,0.08)] lg:grid-cols-[260px_1fr] lg:p-8"
+      >
         <ScoreCircle score={scan.score} />
         <div className="flex flex-col justify-center">
           <p className="text-xs uppercase tracking-[0.25em] text-accent-purple">Technova Hub report</p>
@@ -100,25 +107,31 @@ const ResultsPage = () => {
             </Link>
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section className="grid gap-4">
+      <motion.section variants={sectionReveal} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.18 }} className="grid gap-4">
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.25em] text-accent-purple">Category breakdown</p>
             <h2 className="mt-2 text-2xl font-bold text-text">What influenced the score</h2>
           </div>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
+        <motion.div variants={staggerContainer} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }} className="grid gap-4 md:grid-cols-2">
           {(scan.breakdown || []).map((item) => (
-            <BreakdownCard key={item.key} item={item} />
+            <motion.div key={item.key} variants={staggerItem}>
+              <BreakdownCard item={item} />
+            </motion.div>
           ))}
-        </div>
-      </section>
+        </motion.div>
+      </motion.section>
 
-      <TechnicalSeoPanel technicalSeo={scan.technicalSeo} inputType={scan.inputType || scan.type?.toLowerCase()} />
+      <motion.div variants={sectionReveal} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.18 }}>
+        <TechnicalSeoPanel technicalSeo={scan.technicalSeo} inputType={scan.inputType || scan.type?.toLowerCase()} />
+      </motion.div>
 
-      <RecommendationPanel recommendations={scan.recommendations || []} />
+      <motion.div variants={sectionReveal} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.18 }}>
+        <RecommendationPanel recommendations={scan.recommendations || []} />
+      </motion.div>
     </motion.div>
   );
 };

@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { BadgeCheck, Flame, Lightbulb, ShieldAlert } from 'lucide-react';
+import { hoverLift, staggerContainer, staggerItem } from '../utils/motion';
 
 const iconMap = {
   High: Flame,
@@ -43,16 +44,15 @@ const RecommendationPanel = ({ recommendations = [] }) => {
         <p className="text-xs uppercase tracking-[0.25em] text-text-muted">Next steps</p>
         <h2 className="mt-2 text-2xl font-bold text-text">Recommendations</h2>
       </div>
-      <div className="grid gap-3">
+      <motion.div variants={staggerContainer} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }} className="grid gap-3">
         {normalizedRecommendations.map((item, index) => {
           const Icon = item.priority === 'High' ? ShieldAlert : iconMap[item.priority] || BadgeCheck;
           return (
             <motion.div
               key={`${item.factor}-${index}`}
-              className="flex gap-4 rounded-[1.4rem] border border-border bg-bg-elevated p-4"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.06 }}
+              variants={staggerItem}
+              {...hoverLift}
+              className="flex gap-4 rounded-[1.4rem] border border-border bg-bg-elevated p-4 will-change-transform"
             >
               <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-accent-purple/15 to-accent-cyan/15 text-accent-purple">
                 <Icon className="h-5 w-5" />
@@ -69,7 +69,7 @@ const RecommendationPanel = ({ recommendations = [] }) => {
             </motion.div>
           );
         })}
-      </div>
+      </motion.div>
     </section>
   );
 };

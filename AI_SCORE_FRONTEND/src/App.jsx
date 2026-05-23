@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import Navbar from './components/Navbar';
 import SkeletonLoader from './components/SkeletonLoader';
+import { pageMotion } from './utils/motion';
 
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const ResultsPage = lazy(() => import('./pages/ResultsPage'));
@@ -32,10 +33,10 @@ const App = () => {
       <AnimatePresence mode="wait">
         <motion.main
           key={location.pathname}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.25 }}
+          initial={pageMotion.initial}
+          animate={pageMotion.animate}
+          exit={pageMotion.exit}
+          transition={pageMotion.transition}
           className="w-full px-4 pb-16 pt-6 sm:px-6 lg:px-8 xl:px-10"
         >
           <Suspense fallback={<SkeletonLoader />}>{routes}</Suspense>

@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { motion } from 'framer-motion';
+import { hoverLift } from '../utils/motion';
 
 const BreakdownCard = ({ item }) => {
   const label = item.label || item.factor || 'Factor';
@@ -7,8 +8,8 @@ const BreakdownCard = ({ item }) => {
 
   return (
     <motion.article
-      className="glass-panel rounded-[1.5rem] p-5 transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(24,18,44,0.08)]"
-      whileHover={{ y: -4 }}
+      {...hoverLift}
+      className="glass-panel rounded-[1.5rem] p-5 transition duration-300 will-change-transform hover:shadow-[0_18px_40px_rgba(24,18,44,0.08)]"
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 className="text-sm font-medium text-text">{label}</h3>

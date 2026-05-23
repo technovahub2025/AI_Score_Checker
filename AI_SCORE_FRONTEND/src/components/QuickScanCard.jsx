@@ -3,6 +3,7 @@ import { LoaderCircle, Globe2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import useScan from '../hooks/useScan';
 import { sanitizeInput } from '../utils/formatters';
+import { hoverLift, sectionReveal } from '../utils/motion';
 
 const QuickScanCard = () => {
   const [url, setUrl] = useState('');
@@ -23,8 +24,12 @@ const QuickScanCard = () => {
   return (
     <motion.div
       id="quick-scan"
-      whileHover={{ y: -4 }}
-      className="scroll-mt-28 glass-panel rounded-[1.6rem] p-5 md:scroll-mt-32"
+      {...hoverLift}
+      variants={sectionReveal}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.18 }}
+      className="scroll-mt-28 glass-panel rounded-[1.6rem] p-5 will-change-transform md:scroll-mt-32"
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
@@ -59,7 +64,7 @@ const QuickScanCard = () => {
         <button
           type="submit"
           disabled={!isValid || loading}
-          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-accent-purple to-accent-cyan px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(139,92,246,0.24)] transition duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-accent-purple to-accent-cyan px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(139,92,246,0.24)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(139,92,246,0.3)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? <LoaderCircle className="h-5 w-5 animate-spin" /> : null}
           Analyze now

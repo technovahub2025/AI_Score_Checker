@@ -17,6 +17,7 @@ import {
 import { motion } from 'framer-motion';
 import QuickScanCard from '../components/QuickScanCard';
 import BrandLogo from '../components/BrandLogo';
+import { hoverLift, sectionReveal, staggerContainer, staggerItem } from '../utils/motion';
 
 const metrics = [
   { value: '50K+', label: 'Brands scanned' },
@@ -101,8 +102,9 @@ const comparisonRows = [
 
 const MetricCard = memo(({ value, label }) => (
   <motion.div
-    whileHover={{ y: -4 }}
-    className="glass-panel rounded-[1.5rem] p-6 text-center transition duration-300"
+    {...hoverLift}
+    variants={staggerItem}
+    className="glass-panel rounded-[1.5rem] p-6 text-center transition duration-300 will-change-transform"
   >
     <p className="text-3xl font-bold text-accent-purple md:text-[2.2rem]">{value}</p>
     <p className="mt-2 text-sm font-medium text-text-muted">{label}</p>
@@ -111,8 +113,9 @@ const MetricCard = memo(({ value, label }) => (
 
 const FeatureCard = memo(({ icon: Icon, title, text }) => (
   <motion.article
-    whileHover={{ y: -4 }}
-    className="glass-panel rounded-[1.5rem] p-5 transition duration-300"
+    {...hoverLift}
+    variants={staggerItem}
+    className="glass-panel rounded-[1.5rem] p-5 transition duration-300 will-change-transform"
   >
     <div className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-accent-purple/15 to-accent-cyan/15 text-accent-purple">
       <Icon className="h-5 w-5" />
@@ -171,7 +174,13 @@ const LandingPage = () => {
 
   return (
     <div className="w-full space-y-12 pb-8">
-      <section className="relative overflow-hidden rounded-[2rem] border border-border bg-surface px-6 py-8 shadow-[0_24px_80px_rgba(24,18,44,0.08)] md:px-8 md:py-10">
+      <motion.section
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        className="relative overflow-hidden rounded-[2rem] border border-border bg-surface px-6 py-8 shadow-[0_24px_80px_rgba(24,18,44,0.08)] md:px-8 md:py-10"
+      >
         <div className="pointer-events-none absolute inset-0">
           <div className="orb absolute left-0 top-0 h-72 w-72 rounded-full bg-accent-purple/15 blur-3xl" />
           <div className="orb absolute right-0 top-8 h-80 w-80 rounded-full bg-accent-cyan/12 blur-3xl [animation-delay:1.5s]" />
@@ -209,22 +218,38 @@ const LandingPage = () => {
             <QuickScanCard />
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <motion.section
+        variants={staggerContainer}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
+        className="grid gap-4 md:grid-cols-4"
+      >
         {metrics.map((item) => (
           <MetricCard key={item.label} {...item} />
         ))}
-      </section>
+      </motion.section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <motion.section
+        variants={staggerContainer}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
+        className="grid gap-4 md:grid-cols-3"
+      >
         {features.map((feature) => (
           <FeatureCard key={feature.title} {...feature} />
         ))}
-      </section>
+      </motion.section>
 
-      <section
+      <motion.section
         id="how-it-works"
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.18 }}
         className="grid scroll-mt-20 gap-8 rounded-[2rem] border border-border bg-surface p-6 md:scroll-mt-24 md:p-8 lg:grid-cols-[1.05fr_0.95fr]"
       >
         <div className="grid gap-4">
@@ -273,10 +298,14 @@ const LandingPage = () => {
             </div>
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section
+      <motion.section
         id="faq"
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.18 }}
         className="grid scroll-mt-20 gap-8 rounded-[2rem] border border-border bg-surface p-6 md:scroll-mt-24 md:p-8 lg:grid-cols-[0.9fr_1.1fr]"
       >
         <div className="flex h-full flex-col gap-6 lg:pt-2">
@@ -328,9 +357,15 @@ const LandingPage = () => {
             );
           })}
         </div>
-      </section>
+      </motion.section>
 
-      <footer className="flex flex-col gap-6 border-t border-border pt-6">
+      <motion.footer
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
+        className="flex flex-col gap-6 border-t border-border pt-6"
+      >
         <div className="flex flex-col gap-4 rounded-[1.6rem] border border-border bg-surface px-5 py-5 md:px-6">
           <div className="flex flex-col gap-4 text-sm text-text-muted md:flex-row md:flex-wrap md:items-center md:gap-x-8 md:gap-y-4">
             <a
@@ -373,7 +408,7 @@ const LandingPage = () => {
             </Link>
           </div>
         </div>
-      </footer>
+      </motion.footer>
     </div>
   );
 };
