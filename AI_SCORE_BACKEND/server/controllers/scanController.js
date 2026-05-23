@@ -8,37 +8,34 @@ const { pruneScansByUser } = require('../services/scanRetentionService');
 
 const createScan = async (req, res, next) => {
   try {
-    const { inputType, inputUrl, inputText } = req.body;
-    const errors = validateScanInput({ inputType, inputUrl, inputText });
+    const { inputUrl } = req.body;
+    const errors = validateScanInput({ inputUrl });
 
     if (errors.length) {
       return sendError(res, errors.join(' '), 400);
     }
 
     const scan = await Scan.create({
-      inputType,
-      inputUrl: inputType === 'url' ? inputUrl.trim() : undefined,
-      inputText: inputType === 'text' ? normalizeWhitespace(inputText) : undefined,
+      inputType: 'url',
+      inputUrl: inputUrl.trim(),
       status: 'pending'
     });
 
     scan.status = 'processing';
     await scan.save();
 
-    let sourceText = normalizeWhitespace(inputText);
+    let sourceText = '';
     let technicalSeo = null;
 
-    if (inputType === 'url') {
-      const analysis = await analyzeTechnicalSeo(inputUrl.trim());
-      sourceText = normalizeWhitespace(analysis.contentText || analysis.visibleText || '');
-      technicalSeo = analysis.technicalSeo;
-    }
+    const analysis = await analyzeTechnicalSeo(inputUrl.trim());
+    sourceText = normalizeWhitespace(analysis.contentText || analysis.visibleText || '');
+    technicalSeo = analysis.technicalSeo;
 
-    const scoreSource = inputType === 'url' ? sourceText || inputUrl.trim() : sourceText;
+    const scoreSource = sourceText;
     const result = scoreContent(scoreSource);
     const contentScore = result.totalScore;
     const technicalScore = technicalSeo?.score || 0;
-    const totalScore = inputType === 'url' ? Math.round(contentScore * 0.75 + technicalScore * 0.25) : contentScore;
+    const totalScore = Math.round(contentScore * 0.75 + technicalScore * 0.25);
     const technicalCoverage = technicalSeo?.coverage || 'full';
 
     scan.inputText = sourceText;
@@ -51,7 +48,7 @@ const createScan = async (req, res, next) => {
     scan.analysisCoverage = technicalCoverage;
     scan.analysisLimited = technicalCoverage !== 'full';
     scan.recommendations = result.recommendations;
-    scan.analysisSource = inputType === 'url' ? 'hybrid' : 'backend';
+    scan.analysisSource = 'hybrid';
     scan.status = 'completed';
     await scan.save();
 
@@ -88,32 +85,7 @@ const getScanById = async (req, res, next) => {
   }
 };
 
-const getHistory = async (req, res, next) => {
-  try {
-    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 200);
-    const skip = (page - 1) * limit;
-    const userId = String(req.query.userId || 'anonymous');
-
-    try {
-      await pruneScansByUser({ userId });
-    } catch (cleanupError) {
-      void cleanupError;
-    }
-
-    const [scans, total] = await Promise.all([
-      Scan.find({ userId }).sort({ createdAt: -1 }).skip(skip).limit(limit),
-      Scan.countDocuments({ userId })
-    ]);
-
-    return sendSuccess(res, { scans, total, page, limit, hasMore: skip + scans.length < total }, 200);
-  } catch (error) {
-    return next(error);
-  }
-};
-
 module.exports = {
   createScan,
-  getScanById,
-  getHistory
+  getScanById
 };

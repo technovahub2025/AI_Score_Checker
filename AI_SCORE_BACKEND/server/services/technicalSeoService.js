@@ -47,8 +47,8 @@ const isPrivateAddress = (ip) => {
 
 const isPublicHttpUrl = async (inputUrl) => {
   const parsed = new URL(String(inputUrl).trim());
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    const error = new Error('Only http and https URLs are supported.');
+  if (parsed.protocol !== 'https:') {
+    const error = new Error('Only https URLs are supported.');
     error.statusCode = 400;
     throw error;
   }

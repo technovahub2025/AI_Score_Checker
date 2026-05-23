@@ -1,5 +1,4 @@
 const cheerio = require('cheerio');
-const pdfParse = require('pdf-parse');
 
 const normalizeWhitespace = (value) => (value || '').replace(/\s+/g, ' ').trim();
 
@@ -37,27 +36,8 @@ const extractTextFromUrl = async (inputUrl) => {
   }
 };
 
-const extractTextFromUpload = async (file) => {
-  try {
-    if (!file) {
-      return '';
-    }
-
-    if (file.mimetype === 'application/pdf') {
-      const parsed = await pdfParse(file.buffer);
-      return truncateText(parsed.text || '');
-    }
-
-    return '';
-  } catch (error) {
-    error.statusCode = error.statusCode || 400;
-    throw error;
-  }
-};
-
 module.exports = {
   extractTextFromUrl,
-  extractTextFromUpload,
   truncateText,
   normalizeWhitespace
 };

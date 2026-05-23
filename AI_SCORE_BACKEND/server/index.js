@@ -6,17 +6,44 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const connectDB = require('./config/db');
 const scanRoutes = require('./routes/scanRoutes');
-const uploadRoutes = require('./routes/uploadRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const { pruneScans } = require('./services/scanRetentionService');
 
 const app = express();
 const port = process.env.PORT || 5000;
 const clientUrl = process.env.CLIENT_URL;
+const allowedLocalOrigins = new Set([
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+  'http://localhost:3000',
+  'http://localhost:4173'
+]);
+
+const corsOrigin = (origin, callback) => {
+  if (!origin) {
+    return callback(null, true);
+  }
+
+  if (clientUrl && origin === clientUrl) {
+    return callback(null, true);
+  }
+
+  if (allowedLocalOrigins.has(origin)) {
+    return callback(null, true);
+  }
+
+  if (/^https?:\/\/(localhost|127\.0\.0\.1|::1)(:\d+)?$/i.test(origin)) {
+    return callback(null, true);
+  }
+
+  return callback(new Error(`CORS policy does not allow origin ${origin}`));
+};
 
 app.use(
   cors({
-    origin: clientUrl || true,
+    origin: corsOrigin,
     credentials: true
   })
 );
@@ -29,7 +56,6 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api', scanRoutes);
-app.use('/api/upload', uploadRoutes);
 
 app.use((req, res, next) => {
   const error = new Error('Route not found.');

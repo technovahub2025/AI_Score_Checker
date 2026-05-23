@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ScoreCircle from '../components/ScoreCircle';
 import BreakdownCard from '../components/BreakdownCard';
@@ -12,9 +12,9 @@ import { useScans } from '../context/ScansContext';
 const ResultsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getScanByIdRemote, getScanById } = useScans();
-  const [scan, setScan] = useState(() => getScanById(id));
-  const [loading, setLoading] = useState(!getScanById(id));
+  const { getScanByIdRemote } = useScans();
+  const [scan, setScan] = useState(null);
+  const [loading, setLoading] = useState(true);
   const coverage = scan?.analysisCoverage || scan?.technicalSeo?.evidence?.coverage || 'partial';
   const coverageLabel =
     coverage === 'full' ? 'Full coverage' : coverage === 'blocked' ? 'Blocked coverage' : 'Partial coverage';
@@ -28,18 +28,17 @@ const ResultsPage = () => {
 
   useEffect(() => {
     let active = true;
-    const cachedScan = getScanById(id);
-    setScan(cachedScan);
-    setLoading(!cachedScan);
+    setScan(null);
+    setLoading(true);
 
     getScanByIdRemote(id)
       .then((result) => {
         if (!active) return;
-        setScan(result || cachedScan);
+        setScan(result || null);
       })
       .catch(() => {
         if (!active) return;
-        setScan(cachedScan);
+        setScan(null);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -48,7 +47,7 @@ const ResultsPage = () => {
     return () => {
       active = false;
     };
-  }, [getScanById, getScanByIdRemote, id]);
+  }, [getScanByIdRemote, id]);
 
   if (loading && !scan) {
     return (
@@ -67,8 +66,8 @@ const ResultsPage = () => {
     return (
       <ErrorState
         title="Scan not found"
-        message="The requested result is missing from local cache and the backend could not return it."
-        onBack={() => navigate('/history')}
+        message="The requested result could not be loaded from the backend."
+        onBack={() => navigate('/#quick-scan')}
       />
     );
   }
@@ -98,13 +97,6 @@ const ResultsPage = () => {
             >
               <ArrowLeft className="h-4 w-4" />
               Scan Again
-            </Link>
-            <Link
-              to="/history"
-              className="inline-flex items-center gap-2 rounded-2xl border border-border bg-bg-elevated px-5 py-3 text-sm font-semibold text-text transition hover:-translate-y-0.5 hover:border-accent-purple/20"
-            >
-              <FileText className="h-4 w-4" />
-              View History
             </Link>
           </div>
         </div>

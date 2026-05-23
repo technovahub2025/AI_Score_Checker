@@ -2,12 +2,11 @@ import { memo, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MoonStar, SunMedium, SquareArrowOutUpRight } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import BrandLogo from './BrandLogo';
 
 const navItems = [
   { label: 'How it works', href: '/#how-it-works' },
-  { label: 'Tips', href: '/#tips' },
-  { label: 'FAQ', href: '/#faq' },
-  { label: 'History', href: '/history' }
+  { label: 'FAQ', href: '/#faq' }
 ];
 
 const Navbar = () => {
@@ -31,18 +30,18 @@ const Navbar = () => {
     >
       <div className="flex w-full flex-wrap items-center gap-3 px-4 py-3 sm:px-6 md:gap-5 lg:px-8 xl:px-10">
         <Link to="/" className="flex items-center gap-3">
-          <img
-            src="/logo.png"
-            alt="Technova Hub"
-            className="h-11 w-11 rounded-2xl border border-border object-cover shadow-[0_10px_24px_rgba(34,24,56,0.08)]"
-          />
-          <div className="hidden sm:block">
-            <p className="text-[0.68rem] uppercase tracking-[0.24em] text-text-muted">AI Visibility</p>
-            <h1 className="text-[0.95rem] font-semibold text-text">Technova Hub</h1>
-          </div>
+          <BrandLogo variant="header" />
         </Link>
 
         <nav className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-1 md:justify-center md:overflow-visible md:pb-0">
+          <Link
+            to="/"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="hidden shrink-0 rounded-full border border-border bg-surface px-3 py-2 text-xs text-text-muted transition duration-300 hover:-translate-y-0.5 hover:border-accent-purple/25 hover:text-text hover:shadow-[0_10px_22px_rgba(139,92,246,0.08)] lg:inline-flex sm:px-4 sm:text-sm"
+          >
+            See how AI sees your brand
+          </Link>
+
           {navItems.map((item) => (
             <Link
               key={item.label}
@@ -55,14 +54,6 @@ const Navbar = () => {
         </nav>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
-          <Link
-            to="/"
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="hidden rounded-2xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-text transition duration-300 hover:-translate-y-0.5 hover:border-accent-purple/25 hover:shadow-[0_10px_24px_rgba(139,92,246,0.08)] lg:inline-flex"
-          >
-            See how AI sees your brand
-          </Link>
-
           <button
             type="button"
             onClick={toggleTheme}

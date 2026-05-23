@@ -9,11 +9,11 @@ const useScan = () => {
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
 
-  const submit = async ({ mode, input, file }) => {
+  const submit = async ({ input }) => {
     try {
       setLoading(true);
       setError('');
-      const scan = await createScan({ mode, input, file });
+      const scan = await createScan({ input });
       setData(scan);
       navigate(`/results/${scan.id}`);
       return scan;

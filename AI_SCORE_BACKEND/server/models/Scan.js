@@ -45,13 +45,9 @@ const TechnicalSeoSchema = new mongoose.Schema(
 const ScanSchema = new mongoose.Schema(
   {
     userId: { type: String, default: 'anonymous' },
-    inputType: { type: String, enum: ['url', 'text', 'file'], required: true },
+    inputType: { type: String, enum: ['url'], required: true },
     inputUrl: { type: String, trim: true },
     inputText: { type: String },
-    fileName: { type: String },
-    fileType: { type: String },
-    fileUrl: { type: String },
-    filePublicId: { type: String },
     contentScore: { type: Number, min: 0, max: 100 },
     technicalScore: { type: Number, min: 0, max: 100 },
     score: { type: Number, min: 0, max: 100 },

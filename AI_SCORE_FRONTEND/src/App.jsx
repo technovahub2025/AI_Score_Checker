@@ -5,7 +5,6 @@ import Navbar from './components/Navbar';
 import SkeletonLoader from './components/SkeletonLoader';
 
 const LandingPage = lazy(() => import('./pages/LandingPage'));
-const HistoryPage = lazy(() => import('./pages/HistoryPage'));
 const ResultsPage = lazy(() => import('./pages/ResultsPage'));
 
 const App = () => {
@@ -20,7 +19,6 @@ const App = () => {
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<LandingPage />} />
         <Route path="/scan" element={<Navigate to="/#quick-scan" replace />} />
-        <Route path="/history" element={<HistoryPage />} />
         <Route path="/results/:id" element={<ResultsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

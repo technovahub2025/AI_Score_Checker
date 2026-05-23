@@ -1,15 +1,12 @@
-import { memo, useEffect, useState } from 'react';
+﻿import { memo, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
-  BadgeCheck,
   Brain,
-  CircleHelp,
-  Clock3,
-  FileText,
+  ChevronDown,
+  ChevronUp,
   Globe2,
   Layers3,
-  Lightbulb,
   ListChecks,
   Mail,
   Search,
@@ -18,9 +15,8 @@ import {
   Globe,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useScans } from '../context/ScansContext';
 import QuickScanCard from '../components/QuickScanCard';
-import { formatDate, getScoreTone } from '../utils/formatters';
+import BrandLogo from '../components/BrandLogo';
 
 const metrics = [
   { value: '50K+', label: 'Brands scanned' },
@@ -33,7 +29,7 @@ const features = [
   {
     icon: Search,
     title: 'Fast Analysis',
-    text: 'Paste a URL or text and get a crisp, rules-based score in seconds.'
+    text: 'Paste a URL and get a crisp, rules-based score in seconds.'
   },
   {
     icon: Sparkles,
@@ -42,8 +38,8 @@ const features = [
   },
   {
     icon: Layers3,
-    title: 'Track Progress',
-    text: 'See recent scans from the backend and compare changes over time.'
+    title: 'Stay focused',
+    text: 'A simple interface keeps the scan workflow fast and easy to repeat.'
   }
 ];
 
@@ -51,7 +47,7 @@ const howItWorks = [
   {
     icon: Globe2,
     title: 'Scan any page',
-    text: 'Check a live URL or paste content directly into the analyzer.'
+    text: 'Check a live URL directly in the analyzer.'
   },
   {
     icon: ListChecks,
@@ -65,39 +61,6 @@ const howItWorks = [
   }
 ];
 
-const tips = [
-  {
-    index: '01',
-    title: 'Add clear H1-H3 headings',
-    text: 'Break up long pages with visible section hierarchy and short descriptive headings.'
-  },
-  {
-    index: '02',
-    title: 'Name your brand explicitly',
-    text: 'Repeat your brand, product, or category name in the intro and supporting sections.'
-  },
-  {
-    index: '03',
-    title: 'Write concise FAQ sections',
-    text: 'Short question-and-answer blocks help AI extract direct answers quickly.'
-  },
-  {
-    index: '04',
-    title: 'Show publication dates',
-    text: 'Recency signals help content feel current to both users and AI systems.'
-  },
-  {
-    index: '05',
-    title: 'Add trust signals',
-    text: 'Use proof points, authorship, testimonials, and cited sources.'
-  },
-  {
-    index: '06',
-    title: 'Use specific language',
-    text: 'Replace vague wording with precise terms, examples, and concrete outcomes.'
-  }
-];
-
 const faqItems = [
   {
     question: 'What is an AI visibility score?',
@@ -106,15 +69,23 @@ const faqItems = [
   },
   {
     question: 'Is Technova Hub completely free?',
-    answer: 'Yes. You can scan without creating an account, and your history is stored on the backend with a browser cache fallback.'
+    answer: 'Yes. You can scan without creating an account.'
   },
   {
     question: 'How accurate is the score?',
     answer: 'The score is rules-based and consistent, which makes it useful for comparison and content iteration.'
   },
   {
-    question: 'What file types can I upload?',
-    answer: 'You can upload PDF, JPG, and PNG files. PDFs are text-extracted before analysis.'
+    question: 'What do I need to scan a page?',
+    answer: 'Just paste a live https URL. The scan checks the page directly and does not require any account setup.'
+  },
+  {
+    question: 'Can I improve my score quickly?',
+    answer: 'Yes. Clear headings, tighter topic focus, and stronger supporting context usually move the score fastest.'
+  },
+  {
+    question: 'Does Technova Hub store my scan results?',
+    answer: 'Results are generated instantly so you can review them right away. The app does not require saved history to use the scanner.'
   }
 ];
 
@@ -162,40 +133,41 @@ const SectionHeading = ({ eyebrow, title, text }) => (
 const LandingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { getHistoryPage, refreshToken } = useScans();
   const [openFaq, setOpenFaq] = useState(0);
-  const [recentScans, setRecentScans] = useState([]);
-  const [recentScansLoading, setRecentScansLoading] = useState(true);
+
+  const scrollToQuickScan = () => {
+    const target = document.getElementById('quick-scan');
+    if (!target) {
+      navigate('/#quick-scan');
+      return;
+    }
+
+    const header = document.querySelector('header');
+    const headerOffset = header ? header.getBoundingClientRect().height : 88;
+    const targetTop = target.getBoundingClientRect().top + window.scrollY;
+    const offsetTop = Math.max(targetTop - headerOffset - 24, 0);
+
+    window.scrollTo({ top: offsetTop, behavior: 'smooth' });
+
+    const input = target.querySelector('input');
+    if (input instanceof HTMLElement) {
+      input.focus({ preventScroll: true });
+    }
+  };
 
   useEffect(() => {
     const hash = location.hash?.replace('#', '');
     if (!hash) return;
+    if (hash === 'quick-scan') {
+      requestAnimationFrame(scrollToQuickScan);
+      return;
+    }
+
     const el = document.getElementById(hash);
     if (el) {
       requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     }
   }, [location.hash]);
-
-  useEffect(() => {
-    let active = true;
-    setRecentScansLoading(true);
-    getHistoryPage(1, 3)
-      .then((result) => {
-        if (!active) return;
-        setRecentScans(result.scans || []);
-      })
-      .catch(() => {
-        if (!active) return;
-        setRecentScans([]);
-      })
-      .finally(() => {
-        if (active) setRecentScansLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [getHistoryPage, refreshToken]);
 
   return (
     <div className="w-full space-y-12 pb-8">
@@ -223,20 +195,14 @@ const LandingPage = () => {
                 clarity, topical breadth, authority, and freshness before you publish.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => navigate('/#quick-scan')}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-accent-purple to-accent-cyan px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(139,92,246,0.28)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_46px_rgba(139,92,246,0.32)]"
-                >
-                  Check Your Score
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-                <Link
-                  to="/history"
-                  className="inline-flex items-center justify-center rounded-2xl border border-border bg-surfaceStrong px-5 py-3 text-sm font-semibold text-text transition duration-300 hover:-translate-y-0.5 hover:border-accent-purple/25 hover:shadow-[0_18px_36px_rgba(34,24,56,0.08)]"
-                >
-                  View History
-                </Link>
+              <button
+                type="button"
+                onClick={scrollToQuickScan}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-accent-purple to-accent-cyan px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(139,92,246,0.28)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_46px_rgba(139,92,246,0.32)]"
+              >
+                Check Your Score
+                <ArrowRight className="h-4 w-4" />
+              </button>
               </div>
             </div>
 
@@ -308,90 +274,15 @@ const LandingPage = () => {
       </section>
 
       <section
-        id="tips"
-        className="grid scroll-mt-20 gap-8 rounded-[2rem] border border-border bg-surface p-6 md:scroll-mt-24 md:p-8 lg:grid-cols-[1fr_0.9fr]"
-      >
-        <div>
-          <SectionHeading
-            eyebrow="Optimisation tips"
-            title="Quick wins to boost your score"
-            text="Small structural changes can create a large jump in readability and machine understanding."
-          />
-
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            {tips.map((tip) => (
-              <motion.article key={tip.index} whileHover={{ y: -4 }} className="glass-panel rounded-[1.4rem] p-5">
-                <p className="text-3xl font-bold text-accent-purple">{tip.index}</p>
-                <h3 className="mt-3 text-lg font-semibold text-text">{tip.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-text-muted">{tip.text}</p>
-              </motion.article>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid gap-4">
-          <div className="glass-panel rounded-[1.6rem] p-6">
-            <div className="flex items-center gap-3">
-              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-accent-purple to-accent-cyan text-white">
-                <Lightbulb className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Feature spotlight</p>
-                <h3 className="mt-1 text-2xl font-bold text-text">Why the score changes</h3>
-              </div>
-            </div>
-            <p className="mt-4 text-sm leading-7 text-text-muted">
-              The engine rewards clear headings, direct language, useful comparisons, and trust signals. It penalizes
-              pages that are vague, under-structured, or sparse on context.
-            </p>
-          </div>
-
-          <div className="glass-panel rounded-[1.6rem] p-6">
-            <div className="flex items-center gap-3">
-              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-accent-purple/10 text-accent-purple">
-                <BadgeCheck className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Output</p>
-                <h3 className="mt-1 text-2xl font-bold text-text">Built for action</h3>
-              </div>
-            </div>
-            <p className="mt-4 text-sm leading-7 text-text-muted">
-              Every result includes a score, a breakdown, and practical suggestions so you can fix the weakest
-              dimension first.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section
         id="faq"
         className="grid scroll-mt-20 gap-8 rounded-[2rem] border border-border bg-surface p-6 md:scroll-mt-24 md:p-8 lg:grid-cols-[0.9fr_1.1fr]"
       >
-        <SectionHeading
-          eyebrow="FAQ"
-          title="Frequently asked questions"
+        <div className="flex h-full flex-col gap-6 lg:pt-2">
+          <SectionHeading
+            eyebrow="FAQ"
+            title="Frequently asked questions"
             text="Clear answers to the questions teams usually ask before they start using Technova Hub."
-        />
-
-        <div className="grid gap-3">
-          {faqItems.map((item, index) => {
-            const open = index === openFaq;
-            return (
-              <button
-                key={item.question}
-                type="button"
-                onClick={() => setOpenFaq(index)}
-                className="glass-panel group rounded-[1.2rem] px-4 py-4 text-left transition duration-300 hover:-translate-y-0.5"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <span className="font-medium text-text">{item.question}</span>
-                  <CircleHelp className={`h-4 w-4 transition ${open ? 'text-accent-purple' : 'text-text-muted'}`} />
-                </div>
-                <p className={`mt-3 text-sm leading-6 text-text-muted ${open ? 'block' : 'hidden'}`}>{item.answer}</p>
-              </button>
-            );
-          })}
+          />
 
           <motion.div
             whileHover={{ y: -4 }}
@@ -403,80 +294,37 @@ const LandingPage = () => {
             </p>
             <button
               type="button"
-              onClick={() => navigate('/#quick-scan')}
+              onClick={scrollToQuickScan}
               className="mt-6 inline-flex items-center justify-center rounded-2xl bg-bg-elevated px-5 py-3 text-sm font-semibold text-[#5b2bd9] transition hover:-translate-y-0.5"
             >
               Check your score now - it&apos;s free
             </button>
           </motion.div>
         </div>
-      </section>
 
-      <section
-        id="history"
-        className="grid scroll-mt-20 gap-8 rounded-[2rem] border border-border bg-surface p-6 md:scroll-mt-24 md:p-8 lg:grid-cols-[0.95fr_1.05fr]"
-      >
-        <div>
-          <SectionHeading
-            eyebrow="Your history"
-            title="Past scans"
-            text="Your scan results are saved on the backend and mirrored locally for fast fallback access."
-          />
-        </div>
-
-        <div className="glass-panel rounded-[1.6rem] p-5">
-          {recentScansLoading ? (
-            <div className="grid gap-3">
-              {Array.from({ length: 3 }).map((_, index) => (
-                <div key={index} className="h-20 animate-pulse rounded-[1.2rem] border border-border bg-bg-elevated" />
-              ))}
-            </div>
-          ) : recentScans.length ? (
-            <div className="grid gap-3">
-              {recentScans.map((scan) => {
-                const tone = getScoreTone(scan.score);
-                const badgeClass =
-                  tone === 'green'
-                    ? 'bg-emerald-500/10 text-emerald-700'
-                    : tone === 'yellow'
-                      ? 'bg-amber-500/10 text-amber-700'
-                      : 'bg-red-500/10 text-red-700';
-
-                return (
-                  <Link
-                    key={scan.id}
-                    to={`/results/${scan.id}`}
-                    className="flex items-center justify-between gap-4 rounded-[1.2rem] border border-border bg-bg-elevated px-4 py-4 transition duration-300 hover:-translate-y-0.5 hover:border-accent-purple/25 hover:shadow-[0_16px_34px_rgba(24,18,44,0.08)]"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-text-muted">
-                        <Clock3 className="h-4 w-4" />
-                        {scan.type}
-                      </div>
-                      <p className="mt-2 truncate text-sm font-medium text-text">{scan.value}</p>
-                      <p className="mt-1 text-xs text-text-muted">{formatDate(scan.createdAt)}</p>
-                    </div>
-                    <span className={`rounded-full px-3 py-1 text-sm font-semibold ${badgeClass}`}>{scan.score}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="grid place-items-center gap-3 rounded-[1.4rem] border border-dashed border-border bg-bg-elevated px-6 py-12 text-center">
-              <div className="grid h-14 w-14 place-items-center rounded-full bg-accent-purple/10 text-accent-purple">
-                <FileText className="h-6 w-6" />
-              </div>
-              <p className="text-lg font-semibold text-text">No scans yet</p>
-              <p className="text-sm text-text-muted">Your scan history will appear here.</p>
+        <div className="grid gap-3">
+          {faqItems.map((item, index) => {
+            const open = index === openFaq;
+            return (
               <button
+                key={item.question}
                 type="button"
-                onClick={() => navigate('/#quick-scan')}
-                className="mt-2 inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-accent-purple to-accent-cyan px-5 py-3 text-sm font-semibold text-white"
+                onClick={() => setOpenFaq((current) => (current === index ? -1 : index))}
+                aria-expanded={open}
+                className="glass-panel group rounded-[1.2rem] px-4 py-4 text-left transition duration-300 hover:-translate-y-0.5"
               >
-                Run your first scan
+                <div className="flex items-start justify-between gap-4">
+                  <span className="pt-0.5 font-medium text-text">{item.question}</span>
+                  {open ? (
+                    <ChevronUp className="mt-0.5 h-4 w-4 shrink-0 text-accent-purple transition" />
+                  ) : (
+                    <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-text-muted transition" />
+                  )}
+                </div>
+                <p className={`mt-3 text-sm leading-6 text-text-muted ${open ? 'block' : 'hidden'}`}>{item.answer}</p>
               </button>
-            </div>
-          )}
+            );
+          })}
         </div>
       </section>
 
@@ -509,27 +357,17 @@ const LandingPage = () => {
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <Link to="/" className="flex items-center gap-3">
-          <img src="/logo.png" alt="Technova Hub" className="h-10 w-10 rounded-2xl border border-border object-cover" />
-          <div>
-            <p className="font-semibold text-text">Technova Hub</p>
-            <p className="text-sm text-text-muted">AI visibility score checker. Fast, instant, no account required.</p>
-          </div>
-        </Link>
+        <div className="grid gap-5 md:grid-cols-[auto_1fr] md:items-center">
+          <Link to="/" className="justify-self-start">
+            <BrandLogo variant="footer" />
+          </Link>
 
-          <div className="flex flex-wrap items-center gap-3 text-sm text-text-muted">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-text-muted md:justify-self-end">
             <Link to="/#how-it-works" className="transition hover:text-text">
               How it works
             </Link>
-            <Link to="/#tips" className="transition hover:text-text">
-              Tips
-            </Link>
             <Link to="/#faq" className="transition hover:text-text">
               FAQ
-            </Link>
-            <Link to="/history" className="transition hover:text-text">
-              History
             </Link>
           </div>
         </div>
@@ -539,3 +377,4 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
+
