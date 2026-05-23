@@ -12,6 +12,17 @@ const { pruneScans } = require('./services/scanRetentionService');
 const app = express();
 const port = process.env.PORT || 5000;
 const clientUrl = process.env.CLIENT_URL;
+const allowedOrigins = new Set(
+  [
+    clientUrl,
+    process.env.ALLOWED_ORIGINS,
+    process.env.CLIENT_URLS
+  ]
+    .filter(Boolean)
+    .flatMap((value) => String(value).split(','))
+    .map((value) => value.trim())
+    .filter(Boolean)
+);
 const allowedLocalOrigins = new Set([
   'http://localhost:5173',
   'http://localhost:5174',
@@ -26,7 +37,7 @@ const corsOrigin = (origin, callback) => {
     return callback(null, true);
   }
 
-  if (clientUrl && origin === clientUrl) {
+  if (allowedOrigins.has(origin)) {
     return callback(null, true);
   }
 
@@ -35,6 +46,10 @@ const corsOrigin = (origin, callback) => {
   }
 
   if (/^https?:\/\/(localhost|127\.0\.0\.1|::1)(:\d+)?$/i.test(origin)) {
+    return callback(null, true);
+  }
+
+  if (/^https:\/\/([a-z0-9-]+\.)?vercel\.app$/i.test(origin) || /^https:\/\/([a-z0-9-]+\.)?vercel\.com$/i.test(origin)) {
     return callback(null, true);
   }
 
