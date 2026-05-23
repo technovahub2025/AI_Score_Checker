@@ -1,5 +1,6 @@
 const cheerio = require('cheerio');
 const dns = require('dns').promises;
+const { execFile } = require('child_process');
 const net = require('net');
 const { URL } = require('url');
 const { normalizeWhitespace } = require('./scanService');
@@ -23,6 +24,7 @@ const RENDER_VIEWPORT = { width: 1440, height: 1200 };
 const PRIVATE_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
 let browserPromise = null;
 let browserInstance = null;
+let browserInstallPromise = null;
 
 const clamp = (value) => Math.max(0, Math.min(100, Math.round(value)));
 
@@ -114,6 +116,70 @@ const getBrowser = async () => {
   return browserPromise;
 };
 
+const installChromium = async () => {
+  if (browserInstallPromise) {
+    return browserInstallPromise;
+  }
+
+  browserInstallPromise = new Promise((resolve, reject) => {
+    const child = execFile(
+      process.platform === 'win32' ? 'npx.cmd' : 'npx',
+      ['--yes', 'playwright', 'install', 'chromium'],
+      {
+        env: {
+          ...process.env,
+          CI: '1'
+        },
+        windowsHide: true
+      },
+      (error, stdout, stderr) => {
+        if (stdout) {
+          console.log(stdout);
+        }
+        if (stderr) {
+          console.log(stderr);
+        }
+
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve();
+      }
+    );
+
+    child.on('error', reject);
+  }).catch((error) => {
+    browserInstallPromise = null;
+    throw error;
+  });
+
+  return browserInstallPromise;
+};
+
+const launchBrowser = async () => {
+  try {
+    return await getBrowser();
+  } catch (error) {
+    const message = String(error?.message || '');
+    const missingBrowser =
+      /Executable doesn't exist/i.test(message) ||
+      /browser has been installed/i.test(message) ||
+      /Failed to launch the browser process/i.test(message) ||
+      /Browser was not found/i.test(message) ||
+      /chromium/i.test(message) && /not found/i.test(message);
+
+    if (!missingBrowser) {
+      throw error;
+    }
+
+    await installChromium();
+    browserPromise = null;
+    return getBrowser();
+  }
+};
+
 const extractRenderedSignals = async (page) => {
   return page.evaluate(() => {
     const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
@@ -145,7 +211,7 @@ const extractRenderedSignals = async (page) => {
 };
 
 const renderPageSnapshot = async (pageUrl) => {
-  const browser = await getBrowser();
+  const browser = await launchBrowser();
   const context = await browser.newContext({
     viewport: RENDER_VIEWPORT,
     userAgent:
