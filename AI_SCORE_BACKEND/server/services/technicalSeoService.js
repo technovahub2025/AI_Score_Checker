@@ -20,6 +20,8 @@ const RENDER_IDLE_TIMEOUT_MS = 5000;
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_REDIRECTS = 5;
 const RENDER_VIEWPORT = { width: 1440, height: 1200 };
+const MIRROR_TIMEOUT_MS = 12000;
+const MIRROR_MIN_CONTENT_LENGTH = 400;
 
 const PRIVATE_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
 let browserPromise = null;
@@ -439,6 +441,56 @@ const extractRichText = (html) => {
   );
 };
 
+const normalizeMirrorText = (text) => {
+  const raw = String(text || '');
+  const marker = 'Markdown Content:';
+  const index = raw.indexOf(marker);
+  const extracted = index >= 0 ? raw.slice(index + marker.length) : raw;
+
+  return normalizeWhitespace(
+    extracted
+      .replace(/\r/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  );
+};
+
+const fetchReadableMirror = async (pageUrl) => {
+  const candidates = [
+    `https://r.jina.ai/http://${pageUrl}`,
+    `https://r.jina.ai/http://${String(pageUrl).replace(/^https?:\/\//i, '')}`
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(new Error('Mirror request timed out.')), MIRROR_TIMEOUT_MS);
+      const response = await fetch(candidate, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: {
+          Accept: 'text/plain'
+        }
+      });
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        continue;
+      }
+
+      const text = await response.text();
+      const normalized = normalizeMirrorText(text);
+      if (normalized) {
+        return normalized;
+      }
+    } catch (error) {
+      void error;
+    }
+  }
+
+  return '';
+};
+
 const extractMetaContent = ($, selector) => normalizeWhitespace($(selector).attr('content') || '');
 
 const scoreRobotsTxt = (robotsResult) => {
@@ -787,7 +839,7 @@ const deriveCoverage = ({ analysisMode, checks }) => {
     return 'blocked';
   }
 
-  if (analysisMode === 'rendered' && blockedCount === 0) {
+  if (blockedCount === 0) {
     return 'full';
   }
 
@@ -830,10 +882,14 @@ const analyzeTechnicalSeo = async (pageUrl) => {
   const html = renderedSnapshot?.html || pageResult?.body || '';
   const $ = cheerio.load(html || '');
   const richText = extractRichText(html);
-  const visibleText = normalizeWhitespace(renderedSnapshot?.bodyText || extractVisibleText(html) || richText);
-  const contentText = normalizeWhitespace(
-    renderedSnapshot?.filteredText || renderedSnapshot?.bodyText || richText || extractVisibleText(html)
-  );
+  const mirrorText =
+    richText.length < MIRROR_MIN_CONTENT_LENGTH || (renderedSnapshot?.analysisMode !== 'rendered' && richText.length < 900)
+      ? await fetchReadableMirror(finalUrl || targetUrl.toString())
+      : '';
+  const baseVisibleText = renderedSnapshot?.bodyText || extractVisibleText(html) || richText;
+  const baseContentText = renderedSnapshot?.filteredText || renderedSnapshot?.bodyText || richText || extractVisibleText(html);
+  const visibleText = normalizeWhitespace(mirrorText && baseVisibleText.length < MIRROR_MIN_CONTENT_LENGTH ? mirrorText : baseVisibleText);
+  const contentText = normalizeWhitespace(mirrorText && baseContentText.length < MIRROR_MIN_CONTENT_LENGTH ? mirrorText : baseContentText);
 
   const origin = new URL(finalUrl).origin;
   const robotsUrl = new URL('/robots.txt', origin).href;

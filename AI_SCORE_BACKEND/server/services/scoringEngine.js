@@ -198,19 +198,46 @@ const buildFactorExplanation = (factor, score) => {
 
 const buildRecommendation = (factor) => {
   const map = {
-    'Brand Mention Presence':
-      'Brand Mention Presence: Add the brand, product, or entity name in the opening paragraph, page title, and at least one subheading so the subject is unmistakable.',
-    'Clarity of Message':
-      'Clarity of Message: Shorten long sentences, remove jargon, and lead with one direct value statement that tells readers exactly what the content offers.',
-    'Content Coverage':
-      'Content Coverage: Expand the page with use cases, benefits, objections, FAQs, and next steps so the content covers the topic from more than one angle.',
-    'Competitor Visibility Signals':
-      'Competitor Visibility Signals: Add a comparison section that names alternatives, differentiators, and category context so the content stands out in competitive searches.',
-    'Structured Content Quality':
-      'Structured Content Quality: Add headings, bullet lists, and definition-style blocks to make the page easier for AI systems and search engines to parse.'
+    'Brand Mention Presence': {
+      title: 'Strengthen brand mentions',
+      detail:
+        'Add the brand, product, or entity name in the opening paragraph, page title, and at least one subheading so the subject is unmistakable.',
+      priority: 'Medium'
+    },
+    'Clarity of Message': {
+      title: 'Shorten and simplify the message',
+      detail:
+        'Shorten long sentences, remove jargon, and lead with one direct value statement that tells readers exactly what the content offers.',
+      priority: 'High'
+    },
+    'Content Coverage': {
+      title: 'Expand topical coverage',
+      detail:
+        'Expand the page with use cases, benefits, objections, FAQs, and next steps so the content covers the topic from more than one angle.',
+      priority: 'High'
+    },
+    'Competitor Visibility Signals': {
+      title: 'Add comparison context',
+      detail:
+        'Add a comparison section that names alternatives, differentiators, and category context so the content stands out in competitive searches.',
+      priority: 'Medium'
+    },
+    'Structured Content Quality': {
+      title: 'Improve page structure',
+      detail:
+        'Add headings, bullet lists, and definition-style blocks to make the page easier for AI systems and search engines to parse.',
+      priority: 'High'
+    }
   };
 
-  return map[factor] || 'Improve the content in a targeted way to strengthen this factor.';
+  return {
+    factor,
+    ...(map[factor] || {
+      title: 'Improve this factor',
+      detail: 'Improve the content in a targeted way to strengthen this factor.',
+      priority: 'Medium'
+    })
+  };
 };
 
 const scoreContent = (text) => {

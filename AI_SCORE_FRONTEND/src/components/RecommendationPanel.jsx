@@ -7,7 +7,36 @@ const iconMap = {
   Medium: Lightbulb
 };
 
+const normalizeRecommendation = (item, index) => {
+  if (!item) return null;
+
+  if (typeof item === 'string') {
+    const [factor, ...rest] = item.split(':');
+    return {
+      factor: factor.trim(),
+      title: factor.trim(),
+      detail: rest.join(':').trim() || item,
+      priority: 'Medium'
+    };
+  }
+
+  if (typeof item === 'object') {
+    return {
+      factor: item.factor || `Recommendation ${index + 1}`,
+      title: item.title || item.factor || `Recommendation ${index + 1}`,
+      detail: item.detail || item.explanation || '',
+      priority: item.priority || 'Medium'
+    };
+  }
+
+  return null;
+};
+
 const RecommendationPanel = ({ recommendations = [] }) => {
+  const normalizedRecommendations = recommendations
+    .map((item, index) => normalizeRecommendation(item, index))
+    .filter(Boolean);
+
   return (
     <section className="glass-panel rounded-[1.8rem] p-6">
       <div className="mb-4">
@@ -15,7 +44,7 @@ const RecommendationPanel = ({ recommendations = [] }) => {
         <h2 className="mt-2 text-2xl font-bold text-text">Recommendations</h2>
       </div>
       <div className="grid gap-3">
-        {recommendations.map((item, index) => {
+        {normalizedRecommendations.map((item, index) => {
           const Icon = item.priority === 'High' ? ShieldAlert : iconMap[item.priority] || BadgeCheck;
           return (
             <motion.div
