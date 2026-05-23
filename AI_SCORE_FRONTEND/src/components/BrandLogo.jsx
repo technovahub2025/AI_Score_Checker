@@ -27,9 +27,11 @@ const BrandLogo = ({ variant = 'header', className = '' }) => {
             className={['block rounded-[0.75rem] object-contain', size.icon].join(' ')}
           />
         </div>
-        <div className="flex flex-col items-start gap-1">
+        <div className="flex min-w-0 flex-col items-start gap-1">
           <p className={['text-text', size.title].join(' ')}>Technova Hub</p>
-          <p className="text-sm text-text-muted">Empowering Minds. © 2025 Grand Helm. All rights reserved.</p>
+          <p className="max-w-[15rem] text-xs leading-5 text-text-muted sm:max-w-none sm:text-sm">
+            Empowering Minds. © 2025 Grand Helm. All rights reserved.
+          </p>
         </div>
       </div>
     );

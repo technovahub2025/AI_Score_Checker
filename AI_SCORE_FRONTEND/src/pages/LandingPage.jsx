@@ -187,22 +187,22 @@ const LandingPage = () => {
 
           <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
             <div className="max-w-3xl">
-              <h1 className="text-4xl font-bold tracking-tight text-text md:text-6xl">
+              <h1 className="text-4xl font-bold tracking-tight text-text sm:text-5xl md:text-6xl">
                 See how AI sees your brand
               </h1>
-              <p className="mt-5 max-w-2xl text-base leading-8 text-text-muted md:text-lg">
+              <p className="mt-5 max-w-2xl text-base leading-7 text-text-muted md:text-lg md:leading-8">
                 Technova Hub scores the signals that matter most for AI visibility. Use it to check structure,
                 clarity, topical breadth, authority, and freshness before you publish.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={scrollToQuickScan}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-accent-purple to-accent-cyan px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(139,92,246,0.28)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_46px_rgba(139,92,246,0.32)]"
-              >
-                Check Your Score
-                <ArrowRight className="h-4 w-4" />
-              </button>
+                <button
+                  type="button"
+                  onClick={scrollToQuickScan}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-accent-purple to-accent-cyan px-4 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(139,92,246,0.28)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_46px_rgba(139,92,246,0.32)] sm:px-5"
+                >
+                  Check Your Score
+                  <ArrowRight className="h-4 w-4" />
+                </button>
               </div>
             </div>
 
@@ -251,24 +251,26 @@ const LandingPage = () => {
           />
 
           <div className="overflow-hidden rounded-[1.6rem] border border-border bg-bg-elevated">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead>
-                <tr className="bg-surfaceStrong text-[0.72rem] uppercase tracking-[0.22em] text-text-muted">
-                  <th className="px-5 py-4 font-semibold">Factor</th>
-                  <th className="px-5 py-4 font-semibold">Traditional SEO</th>
-                  <th className="px-5 py-4 font-semibold">AI visibility</th>
-                </tr>
-              </thead>
-              <tbody>
-                {comparisonRows.map((row, index) => (
-                  <tr key={row[0]} className={index % 2 === 0 ? 'bg-transparent' : 'bg-surfaceStrong/60'}>
-                    <td className="px-5 py-4 font-medium text-text">{row[0]}</td>
-                    <td className="px-5 py-4 text-text-muted">{row[1]}</td>
-                    <td className="px-5 py-4 text-text-muted">{row[2]}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="bg-surfaceStrong text-[0.72rem] uppercase tracking-[0.22em] text-text-muted">
+                    <th className="px-5 py-4 font-semibold">Factor</th>
+                    <th className="px-5 py-4 font-semibold">Traditional SEO</th>
+                    <th className="px-5 py-4 font-semibold">AI visibility</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {comparisonRows.map((row, index) => (
+                    <tr key={row[0]} className={index % 2 === 0 ? 'bg-transparent' : 'bg-surfaceStrong/60'}>
+                      <td className="px-5 py-4 font-medium text-text">{row[0]}</td>
+                      <td className="px-5 py-4 text-text-muted">{row[1]}</td>
+                      <td className="px-5 py-4 text-text-muted">{row[2]}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
