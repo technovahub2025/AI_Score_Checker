@@ -4,7 +4,6 @@ import {
   ArrowRight,
   Brain,
   ChevronDown,
-  ChevronUp,
   Globe2,
   Layers3,
   ListChecks,
@@ -346,13 +345,22 @@ const LandingPage = () => {
               >
                 <div className="flex items-start justify-between gap-4">
                   <span className="pt-0.5 font-medium text-text">{item.question}</span>
-                  {open ? (
-                    <ChevronUp className="mt-0.5 h-4 w-4 shrink-0 text-accent-purple transition" />
-                  ) : (
-                    <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-text-muted transition" />
-                  )}
+                  <motion.span
+                    animate={{ rotate: open ? 180 : 0 }}
+                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    className="mt-0.5 shrink-0"
+                  >
+                    <ChevronDown className={`h-4 w-4 transition ${open ? 'text-accent-purple' : 'text-text-muted'}`} />
+                  </motion.span>
                 </div>
-                <p className={`mt-3 text-sm leading-6 text-text-muted ${open ? 'block' : 'hidden'}`}>{item.answer}</p>
+                <motion.div
+                  initial={false}
+                  animate={{ height: open ? 'auto' : 0, opacity: open ? 1 : 0 }}
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="overflow-hidden"
+                >
+                  <p className="mt-3 text-sm leading-6 text-text-muted">{item.answer}</p>
+                </motion.div>
               </button>
             );
           })}

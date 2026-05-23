@@ -46,3 +46,17 @@ export const hoverLift = {
   whileHover: { y: -4, transition: { duration: 0.18, ease: easeOutQuint } },
   whileTap: { scale: 0.99 }
 };
+
+export const pressScale = {
+  whileHover: { y: -2, transition: { duration: 0.18, ease: easeOutQuint } },
+  whileTap: { scale: 0.985 }
+};
+
+export const glowFade = {
+  initial: { opacity: 0, scale: 0.96 },
+  animate: {
+    opacity: 1,
+    scale: 1,
+    transition: { duration: 0.5, ease: easeOutQuint }
+  }
+};

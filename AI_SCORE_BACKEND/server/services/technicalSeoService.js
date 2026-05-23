@@ -22,13 +22,40 @@ const MAX_REDIRECTS = 5;
 const RENDER_VIEWPORT = { width: 1440, height: 1200 };
 const MIRROR_TIMEOUT_MS = 12000;
 const MIRROR_MIN_CONTENT_LENGTH = 400;
+const DNS_CACHE_TTL_MS = 30 * 60 * 1000;
+const RESOURCE_CACHE_TTL_MS = 5 * 60 * 1000;
+const MIRROR_CACHE_TTL_MS = 10 * 60 * 1000;
 
 const PRIVATE_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
 let browserPromise = null;
 let browserInstance = null;
 let browserInstallPromise = null;
+const dnsCache = new Map();
+const resourceCache = new Map();
+const mirrorCache = new Map();
 
 const clamp = (value) => Math.max(0, Math.min(100, Math.round(value)));
+
+const setCacheEntry = (cache, key, value, ttlMs) => {
+  cache.set(key, {
+    value,
+    expiresAt: Date.now() + ttlMs
+  });
+};
+
+const getCacheEntry = (cache, key) => {
+  const entry = cache.get(key);
+  if (!entry) {
+    return null;
+  }
+
+  if (entry.expiresAt <= Date.now()) {
+    cache.delete(key);
+    return null;
+  }
+
+  return entry.value;
+};
 
 const isPrivateIpv4 = (ip) =>
   /^10\./.test(ip) ||
@@ -64,15 +91,25 @@ const isPublicHttpUrl = async (inputUrl) => {
   }
 
   const hostname = parsed.hostname.toLowerCase();
+  const cachedDns = getCacheEntry(dnsCache, hostname);
+  if (cachedDns) {
+    if (cachedDns.error) {
+      throw cachedDns.error;
+    }
+    return parsed;
+  }
+
   if (PRIVATE_HOSTNAMES.has(hostname) || hostname.endsWith('.local')) {
     const error = new Error('Private or local URLs are not supported.');
     error.statusCode = 400;
+    setCacheEntry(dnsCache, hostname, { error }, DNS_CACHE_TTL_MS);
     throw error;
   }
 
   if (net.isIP(hostname) && isPrivateAddress(hostname)) {
     const error = new Error('Private or local URLs are not supported.');
     error.statusCode = 400;
+    setCacheEntry(dnsCache, hostname, { error }, DNS_CACHE_TTL_MS);
     throw error;
   }
 
@@ -80,9 +117,11 @@ const isPublicHttpUrl = async (inputUrl) => {
   if (!resolved.length || resolved.some((item) => isPrivateAddress(item.address))) {
     const error = new Error('Private or local URLs are not supported.');
     error.statusCode = 400;
+    setCacheEntry(dnsCache, hostname, { error }, DNS_CACHE_TTL_MS);
     throw error;
   }
 
+  setCacheEntry(dnsCache, hostname, { ok: true }, DNS_CACHE_TTL_MS);
   return parsed;
 };
 
@@ -370,6 +409,14 @@ const fetchWithLimits = async (inputUrl, { timeoutMs = REQUEST_TIMEOUT_MS, maxBy
 };
 
 const fetchTextResource = async (resourceUrl, options = {}) => {
+  const cacheKey = `${String(resourceUrl || '').trim()}|${options.timeoutMs || ''}|${options.maxBytes || ''}|${String(
+    options.headers?.Accept || options.headers?.accept || ''
+  )}`;
+  const cached = getCacheEntry(resourceCache, cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   try {
     const result = await fetchWithLimits(resourceUrl, {
       ...options,
@@ -379,7 +426,19 @@ const fetchTextResource = async (resourceUrl, options = {}) => {
       }
     });
 
-    return result;
+    const cachedResult = {
+      response: result.response
+        ? {
+            ok: result.response.ok,
+            status: result.response.status
+          }
+        : null,
+      body: result.body,
+      finalUrl: result.finalUrl
+    };
+
+    setCacheEntry(resourceCache, cacheKey, cachedResult, RESOURCE_CACHE_TTL_MS);
+    return cachedResult;
   } catch (error) {
     return {
       error,
@@ -456,6 +515,12 @@ const normalizeMirrorText = (text) => {
 };
 
 const fetchReadableMirror = async (pageUrl) => {
+  const cacheKey = String(pageUrl || '').trim();
+  const cached = getCacheEntry(mirrorCache, cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const candidates = [
     `https://r.jina.ai/http://${pageUrl}`,
     `https://r.jina.ai/http://${String(pageUrl).replace(/^https?:\/\//i, '')}`
@@ -481,6 +546,7 @@ const fetchReadableMirror = async (pageUrl) => {
       const text = await response.text();
       const normalized = normalizeMirrorText(text);
       if (normalized) {
+        setCacheEntry(mirrorCache, cacheKey, normalized, MIRROR_CACHE_TTL_MS);
         return normalized;
       }
     } catch (error) {
@@ -555,11 +621,17 @@ const scoreSitemap = async ({ sitemapUrls }) => {
     };
   }
 
+  const results = await Promise.all(
+    tried.map(async (sitemapUrl) => ({
+      sitemapUrl,
+      result: await fetchTextResource(sitemapUrl, { timeoutMs: SITEMAP_TIMEOUT_MS, maxBytes: MAX_BODY_BYTES })
+    }))
+  );
+
   let sawResponse = false;
   let sawInvalidResponse = false;
   let sawBlockedResponse = false;
-  for (const sitemapUrl of tried) {
-    const result = await fetchTextResource(sitemapUrl, { timeoutMs: SITEMAP_TIMEOUT_MS, maxBytes: MAX_BODY_BYTES });
+  for (const { sitemapUrl, result } of results) {
     if (!result.response) {
       continue;
     }
@@ -882,10 +954,11 @@ const analyzeTechnicalSeo = async (pageUrl) => {
   const html = renderedSnapshot?.html || pageResult?.body || '';
   const $ = cheerio.load(html || '');
   const richText = extractRichText(html);
+  const needsMirror =
+    richText.length < MIRROR_MIN_CONTENT_LENGTH || (renderedSnapshot?.analysisMode !== 'rendered' && richText.length < 900);
+  const mirrorPromise = needsMirror ? fetchReadableMirror(finalUrl || targetUrl.toString()) : Promise.resolve('');
   const mirrorText =
-    richText.length < MIRROR_MIN_CONTENT_LENGTH || (renderedSnapshot?.analysisMode !== 'rendered' && richText.length < 900)
-      ? await fetchReadableMirror(finalUrl || targetUrl.toString())
-      : '';
+    await mirrorPromise;
   const baseVisibleText = renderedSnapshot?.bodyText || extractVisibleText(html) || richText;
   const baseContentText = renderedSnapshot?.filteredText || renderedSnapshot?.bodyText || richText || extractVisibleText(html);
   const visibleText = normalizeWhitespace(mirrorText && baseVisibleText.length < MIRROR_MIN_CONTENT_LENGTH ? mirrorText : baseVisibleText);
@@ -893,7 +966,8 @@ const analyzeTechnicalSeo = async (pageUrl) => {
 
   const origin = new URL(finalUrl).origin;
   const robotsUrl = new URL('/robots.txt', origin).href;
-  const robotsResult = await fetchTextResource(robotsUrl, { timeoutMs: ROBOTS_TIMEOUT_MS, maxBytes: 250_000 });
+  const robotsPromise = fetchTextResource(robotsUrl, { timeoutMs: ROBOTS_TIMEOUT_MS, maxBytes: 250_000 });
+  const robotsResult = await robotsPromise;
   const robotsText = robotsResult.body || '';
 
   const sitemapUrls = [];

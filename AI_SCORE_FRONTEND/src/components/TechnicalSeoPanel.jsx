@@ -1,5 +1,7 @@
 import { memo } from 'react';
+import { motion } from 'framer-motion';
 import { Globe2, Link2, MapPinned, ShieldCheck, FileCode2 } from 'lucide-react';
+import { hoverLift, staggerContainer, staggerItem } from '../utils/motion';
 
 const iconMap = {
   robots: ShieldCheck,
@@ -70,7 +72,13 @@ const TechnicalSeoPanel = ({ technicalSeo, inputType }) => {
   const coverageLabel = coverage === 'full' ? 'Full coverage' : coverage === 'blocked' ? 'Blocked coverage' : 'Partial coverage';
 
   return (
-    <section className="glass-panel rounded-[1.8rem] p-6">
+    <motion.section
+      variants={staggerContainer}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.14 }}
+      className="glass-panel rounded-[1.8rem] p-6"
+    >
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-text-muted">Technical SEO</p>
@@ -112,13 +120,18 @@ const TechnicalSeoPanel = ({ technicalSeo, inputType }) => {
         </div>
       ) : null}
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <motion.div variants={staggerContainer} className="grid gap-3 md:grid-cols-2">
         {technicalSeo.checks.map((check) => {
           const Icon = iconMap[check.key] || ShieldCheck;
           const checkTone = getTone(check.score);
 
           return (
-            <article key={check.key} className="rounded-[1.4rem] border border-border bg-bg-elevated p-4">
+            <motion.article
+              key={check.key}
+              variants={staggerItem}
+              {...hoverLift}
+              className="rounded-[1.4rem] border border-border bg-bg-elevated p-4 transition duration-300 will-change-transform"
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="grid h-10 w-10 place-items-center rounded-2xl bg-accent-purple/10 text-accent-purple">
@@ -146,11 +159,11 @@ const TechnicalSeoPanel = ({ technicalSeo, inputType }) => {
                   ))}
                 </ul>
               ) : null}
-            </article>
+            </motion.article>
           );
         })}
-      </div>
-    </section>
+      </motion.div>
+    </motion.section>
   );
 };
 

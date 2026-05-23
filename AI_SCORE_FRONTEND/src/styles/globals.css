@@ -112,6 +112,39 @@ button {
   animation: orb 10s ease-in-out infinite;
 }
 
+.skeleton-card,
+.skeleton-line {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-card::before,
+.skeleton-line::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 100%
+  );
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+.skeleton-card::before {
+  border-radius: inherit;
+}
+
+.skeleton-line {
+  background-color: rgba(29, 24, 48, 0.08);
+}
+
+.dark .skeleton-line {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
 .glass-panel {
   background: var(--gh-surface);
   border: 1px solid var(--gh-border);
@@ -139,5 +172,11 @@ button {
   }
   50% {
     transform: translate3d(24px, -18px, 0) scale(1.08);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
   }
 }

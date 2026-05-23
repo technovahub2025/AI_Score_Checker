@@ -3,7 +3,7 @@ import { LoaderCircle, Globe2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import useScan from '../hooks/useScan';
 import { sanitizeInput } from '../utils/formatters';
-import { hoverLift, sectionReveal } from '../utils/motion';
+import { hoverLift, pressScale, sectionReveal } from '../utils/motion';
 
 const QuickScanCard = () => {
   const [url, setUrl] = useState('');
@@ -29,8 +29,15 @@ const QuickScanCard = () => {
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, amount: 0.18 }}
-      className="scroll-mt-28 glass-panel rounded-[1.6rem] p-5 will-change-transform md:scroll-mt-32"
+      className="relative scroll-mt-28 overflow-hidden glass-panel rounded-[1.6rem] p-5 will-change-transform md:scroll-mt-32"
     >
+      <motion.div
+        aria-hidden="true"
+        initial={{ opacity: 0.2, scale: 0.98 }}
+        animate={{ opacity: [0.2, 0.35, 0.2], scale: [0.98, 1.01, 0.98] }}
+        transition={{ duration: 5.5, repeat: Infinity, ease: 'easeInOut' }}
+        className="pointer-events-none absolute inset-0 -z-10 rounded-[1.6rem] bg-gradient-to-br from-accent-purple/8 via-transparent to-accent-cyan/8"
+      />
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-text-muted">Quick scan</p>
@@ -61,14 +68,15 @@ const QuickScanCard = () => {
 
         {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
 
-        <button
+        <motion.button
+          {...pressScale}
           type="submit"
           disabled={!isValid || loading}
           className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-accent-purple to-accent-cyan px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(139,92,246,0.24)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(139,92,246,0.3)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? <LoaderCircle className="h-5 w-5 animate-spin" /> : null}
           Analyze now
-        </button>
+        </motion.button>
       </form>
     </motion.div>
   );

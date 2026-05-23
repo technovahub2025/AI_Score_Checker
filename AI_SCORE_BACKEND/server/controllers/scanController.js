@@ -4,25 +4,39 @@ const { sendError, sendSuccess } = require('../utils/responseHelper');
 const { normalizeWhitespace } = require('../services/scanService');
 const { scoreContent } = require('../services/scoringEngine');
 const { analyzeTechnicalSeo } = require('../services/technicalSeoService');
-const { pruneScansByUser } = require('../services/scanRetentionService');
+const { getCachedScanResult, setCachedScanResult, normalizeScanCacheKey } = require('../services/scanCacheService');
 
 const createScan = async (req, res, next) => {
   try {
     const { inputUrl } = req.body;
+    const normalizedInputUrl = normalizeScanCacheKey(inputUrl);
     const errors = validateScanInput({ inputUrl });
 
     if (errors.length) {
       return sendError(res, errors.join(' '), 400);
     }
 
-    const scan = await Scan.create({
-      inputType: 'url',
-      inputUrl: inputUrl.trim(),
-      status: 'pending'
-    });
+    const cachedResult = getCachedScanResult(normalizedInputUrl);
+    if (cachedResult) {
+      const cachedScan = await Scan.create({
+        inputType: 'url',
+        inputUrl: inputUrl.trim(),
+        status: 'completed',
+        analysisSource: cachedResult.analysisSource || 'backend',
+        inputText: cachedResult.inputText || '',
+        contentScore: cachedResult.contentScore || 0,
+        technicalScore: cachedResult.technicalScore || 0,
+        score: cachedResult.score || 0,
+        explanation: cachedResult.explanation || '',
+        breakdown: cachedResult.breakdown || [],
+        technicalSeo: cachedResult.technicalSeo || null,
+        analysisCoverage: cachedResult.analysisCoverage || 'full',
+        analysisLimited: Boolean(cachedResult.analysisLimited),
+        recommendations: cachedResult.recommendations || []
+      });
 
-    scan.status = 'processing';
-    await scan.save();
+      return sendSuccess(res, cachedScan, 201);
+    }
 
     let sourceText = '';
     let technicalSeo = null;
@@ -38,25 +52,24 @@ const createScan = async (req, res, next) => {
     const totalScore = Math.round(contentScore * 0.75 + technicalScore * 0.25);
     const technicalCoverage = technicalSeo?.coverage || 'full';
 
-    scan.inputText = sourceText;
-    scan.contentScore = contentScore;
-    scan.technicalScore = technicalScore;
-    scan.score = totalScore;
-    scan.explanation = result.explanation;
-    scan.breakdown = result.breakdown;
-    scan.technicalSeo = technicalSeo;
-    scan.analysisCoverage = technicalCoverage;
-    scan.analysisLimited = technicalCoverage !== 'full';
-    scan.recommendations = result.recommendations;
-    scan.analysisSource = 'hybrid';
-    scan.status = 'completed';
-    await scan.save();
+    const scan = await Scan.create({
+      inputType: 'url',
+      inputUrl: inputUrl.trim(),
+      status: 'completed',
+      inputText: sourceText,
+      contentScore,
+      technicalScore,
+      score: totalScore,
+      explanation: result.explanation,
+      breakdown: result.breakdown,
+      technicalSeo,
+      analysisCoverage: technicalCoverage,
+      analysisLimited: technicalCoverage !== 'full',
+      recommendations: result.recommendations,
+      analysisSource: 'hybrid'
+    });
 
-    try {
-      await pruneScansByUser({ userId: scan.userId });
-    } catch (cleanupError) {
-      void cleanupError;
-    }
+    setCachedScanResult(normalizedInputUrl, scan.toObject({ depopulate: true, versionKey: false }));
 
     return sendSuccess(res, scan, 201);
   } catch (error) {
@@ -74,7 +87,7 @@ const getScanById = async (req, res, next) => {
       return sendError(res, 'Invalid scan id.', 400);
     }
 
-    const scan = await Scan.findById(id);
+    const scan = await Scan.findById(id).lean();
     if (!scan) {
       return sendError(res, 'Scan not found.', 404);
     }
