@@ -2,7 +2,7 @@ import axios from 'axios';
 import { scoreContent } from '../utils/scoring';
 import { fetchUrlText } from '../utils/file';
 
-const REQUEST_TIMEOUT_MS = 12000;
+const REQUEST_TIMEOUT_MS = 60000;
 const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (isLocalHost ? 'http://localhost:5000' : window.location.origin);
 const LOCAL_SCAN_CACHE_KEY = 'grand-helm.local-scans';
