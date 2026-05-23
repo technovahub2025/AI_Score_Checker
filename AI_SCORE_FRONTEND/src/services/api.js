@@ -138,6 +138,13 @@ const normalizeScan = (scan, { input, sourceText, analysisSource, technicalSeo }
   const contentScore = typeof scan.contentScore === 'number' ? scan.contentScore : typeof scan.score === 'number' ? scan.score : 0;
   const technicalScore = typeof scan.technicalScore === 'number' ? scan.technicalScore : 0;
   const score = typeof scan.score === 'number' ? scan.score : contentScore;
+  const breakdown = Array.isArray(scan.breakdown)
+    ? scan.breakdown.map((item) => ({
+        ...item,
+        label: item.label || item.factor || '',
+        factor: item.factor || item.label || ''
+      }))
+    : [];
 
   return {
     id: scan.id || scan._id || crypto.randomUUID(),
@@ -151,11 +158,11 @@ const normalizeScan = (scan, { input, sourceText, analysisSource, technicalSeo }
     technicalScore,
     score,
     explanation: scan.explanation || '',
-    breakdown: scan.breakdown || [],
+    breakdown,
     technicalSeo: scan.technicalSeo || technicalSeo || null,
     analysisCoverage: scan.analysisCoverage || technicalSeo?.evidence?.coverage || 'partial',
     analysisLimited: Boolean(scan.analysisLimited ?? technicalSeo?.evidence?.limited ?? false),
-    recommendations: normalizeRecommendations(scan.recommendations, scan.breakdown || []),
+    recommendations: normalizeRecommendations(scan.recommendations, breakdown),
     analysisSource: scan.analysisSource || analysisSource || 'local'
   };
 };

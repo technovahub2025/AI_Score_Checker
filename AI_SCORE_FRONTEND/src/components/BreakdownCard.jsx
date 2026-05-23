@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { motion } from 'framer-motion';
 
 const BreakdownCard = ({ item }) => {
+  const label = item.label || item.factor || 'Factor';
   const progress = `${Math.max(0, Math.min(100, item.score))}%`;
 
   return (
@@ -10,7 +11,7 @@ const BreakdownCard = ({ item }) => {
       whileHover={{ y: -4 }}
     >
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-medium text-text">{item.label}</h3>
+        <h3 className="text-sm font-medium text-text">{label}</h3>
         <span className="rounded-full bg-accent-purple/10 px-3 py-1 text-xs font-medium text-accent-purple">
           {item.score}/100
         </span>

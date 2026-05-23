@@ -56,7 +56,7 @@ const ScanSchema = new mongoose.Schema(
     technicalSeo: TechnicalSeoSchema,
     analysisCoverage: { type: String, enum: ['full', 'partial', 'blocked'], default: 'partial' },
     analysisLimited: { type: Boolean, default: false },
-    recommendations: [{ type: String }],
+    recommendations: [{ type: mongoose.Schema.Types.Mixed }],
     analysisSource: { type: String, enum: ['local', 'hybrid', 'backend'], default: 'local' },
     status: {
       type: String,
