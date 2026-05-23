@@ -38,6 +38,8 @@ const apiClient = axios.create({
   }
 });
 
+const isMongoObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || ''));
+
 const requestJson = async (path, options = {}) => {
   try {
     const response = await apiClient.request({
@@ -143,15 +145,19 @@ export const analyzeScan = async ({ input }) => {
 };
 
 export const fetchScanById = async (id) => {
+  const cachedScan = readLocalScanCache()[id];
+  if (cachedScan) {
+    return normalizeScan(cachedScan);
+  }
+
+  if (!isMongoObjectId(id)) {
+    throw new Error('Scan not found.');
+  }
+
   try {
     const scan = await requestJson(`/api/scan/${id}`);
     return normalizeScan(scan);
   } catch (error) {
-    const cachedScan = readLocalScanCache()[id];
-    if (cachedScan) {
-      return normalizeScan(cachedScan);
-    }
-
     throw error;
   }
 };
