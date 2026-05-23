@@ -329,6 +329,50 @@ const extractVisibleText = (html) => {
   return normalizeWhitespace($('body').text());
 };
 
+const extractRichText = (html) => {
+  if (!html) return '';
+
+  const $ = cheerio.load(html);
+  $('script, style, noscript, svg, iframe').remove();
+
+  const title = normalizeWhitespace($('title').first().text() || '');
+  const description = extractMetaContent($, 'meta[name="description"]');
+  const ogDescription = extractMetaContent($, 'meta[property="og:description"]');
+  const headings = $('h1, h2, h3')
+    .map((_, element) => normalizeWhitespace($(element).text() || ''))
+    .get()
+    .filter(Boolean);
+  const paragraphs = $('p, li')
+    .map((_, element) => normalizeWhitespace($(element).text() || ''))
+    .get()
+    .filter(Boolean)
+    .slice(0, 120);
+  const buttons = $('button, a')
+    .map((_, element) => normalizeWhitespace($(element).text() || ''))
+    .get()
+    .filter(Boolean)
+    .slice(0, 60);
+  const altText = $('img[alt]')
+    .map((_, element) => normalizeWhitespace($(element).attr('alt') || ''))
+    .get()
+    .filter(Boolean)
+    .slice(0, 40);
+
+  return normalizeWhitespace(
+    [
+      title ? `Title: ${title}` : '',
+      description ? `Meta description: ${description}` : '',
+      ogDescription && ogDescription !== description ? `Open Graph description: ${ogDescription}` : '',
+      ...headings.map((text) => `Heading: ${text}`),
+      ...paragraphs.map((text) => `Text: ${text}`),
+      ...buttons.map((text) => `Control: ${text}`),
+      ...altText.map((text) => `Image alt: ${text}`)
+    ]
+      .filter(Boolean)
+      .join('\n\n')
+  );
+};
+
 const extractMetaContent = ($, selector) => normalizeWhitespace($(selector).attr('content') || '');
 
 const scoreRobotsTxt = (robotsResult) => {
@@ -719,9 +763,10 @@ const analyzeTechnicalSeo = async (pageUrl) => {
   const finalUrl = renderedSnapshot?.finalUrl || pageResult?.finalUrl || targetUrl.toString();
   const html = renderedSnapshot?.html || pageResult?.body || '';
   const $ = cheerio.load(html || '');
-  const visibleText = normalizeWhitespace(renderedSnapshot?.bodyText || extractVisibleText(html));
+  const richText = extractRichText(html);
+  const visibleText = normalizeWhitespace(renderedSnapshot?.bodyText || extractVisibleText(html) || richText);
   const contentText = normalizeWhitespace(
-    renderedSnapshot?.filteredText || renderedSnapshot?.bodyText || extractVisibleText(html)
+    renderedSnapshot?.filteredText || renderedSnapshot?.bodyText || richText || extractVisibleText(html)
   );
 
   const origin = new URL(finalUrl).origin;

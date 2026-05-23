@@ -6,7 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "nodemon server/index.js"
+    "dev": "nodemon server/index.js",
+    "postinstall": "npx playwright install chromium"
   },
   "dependencies": {
     "cheerio": "^1.0.0",
