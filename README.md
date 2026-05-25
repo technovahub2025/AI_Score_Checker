@@ -31,9 +31,6 @@ Monorepo for the Technova Hub AI Visibility Score Checker app.
 - `PORT=5000`
 - `CLIENT_URL=http://localhost:5173`
 - `MONGODB_URI=...`
-- `CLOUDINARY_CLOUD_NAME=...`
-- `CLOUDINARY_API_KEY=...`
-- `CLOUDINARY_API_SECRET=...`
 
 ### Deployment
 
