@@ -1,6 +1,6 @@
 ﻿const sizes = {
   header: {
-    icon: 'h-11 w-11 sm:h-12 sm:w-12',
+    icon: 'h-10 w-10 sm:h-12 sm:w-12',
     title: 'text-[0.95rem] font-semibold',
     eyebrow: 'text-[0.68rem]',
     gap: 'gap-3'
