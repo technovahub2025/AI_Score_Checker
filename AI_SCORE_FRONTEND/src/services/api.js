@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { scoreContent } from '../utils/scoring';
 import { fetchUrlText } from '../utils/file';
+import { normalizeScanUrl } from '../utils/formatters';
 
 const REQUEST_TIMEOUT_MS = 60000;
 const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
@@ -178,7 +179,8 @@ const fetchBackendScan = async ({ inputUrl }) => {
 };
 
 const buildLocalScan = async ({ input }) => {
-  const fetched = await fetchUrlText(input);
+  const normalizedInput = normalizeScanUrl(input) || String(input || '').trim();
+  const fetched = await fetchUrlText(normalizedInput);
   const sourceText = fetched || '';
 
   const analysis = scoreContent(sourceText);
@@ -186,7 +188,7 @@ const buildLocalScan = async ({ input }) => {
     {
       id: crypto.randomUUID(),
       inputType: 'url',
-      inputUrl: input,
+      inputUrl: normalizedInput,
       inputText: sourceText,
       contentScore: analysis.totalScore,
       technicalScore: 0,
@@ -196,13 +198,14 @@ const buildLocalScan = async ({ input }) => {
       recommendations: normalizeRecommendations(analysis.recommendations, analysis.breakdown),
       analysisSource: 'local'
     },
-    { input, sourceText }
+    { input: normalizedInput, sourceText }
   );
 };
 
 const fetchRemoteScan = async ({ input }) => {
-  const response = await fetchBackendScan({ inputUrl: input });
-  return normalizeScan(response, { input, analysisSource: 'backend' });
+  const normalizedInput = normalizeScanUrl(input) || String(input || '').trim();
+  const response = await fetchBackendScan({ inputUrl: normalizedInput });
+  return normalizeScan(response, { input: normalizedInput, analysisSource: 'backend' });
 };
 
 export const analyzeScan = async ({ input }) => {

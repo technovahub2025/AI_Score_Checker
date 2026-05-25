@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { LoaderCircle, Globe2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import useScan from '../hooks/useScan';
-import { sanitizeInput } from '../utils/formatters';
+import { normalizeScanUrl } from '../utils/formatters';
 import { hoverLift, pressScale, sectionReveal } from '../utils/motion';
 
 const QuickScanCard = () => {
@@ -10,14 +10,15 @@ const QuickScanCard = () => {
   const { loading, error, setError, submit } = useScan();
 
   const isValid = useMemo(() => {
-    return /^https:\/\/.+/i.test(url.trim());
+    return Boolean(normalizeScanUrl(url));
   }, [url]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!isValid) return;
+    const normalizedUrl = normalizeScanUrl(url);
+    if (!normalizedUrl) return;
     await submit({
-      input: sanitizeInput(url, true)
+      input: normalizedUrl
     });
   };
 
@@ -59,12 +60,12 @@ const QuickScanCard = () => {
                 setUrl(event.target.value);
                 setError('');
               }}
-              placeholder="https://yourbrand.com"
+              placeholder="yourbrand.com or https://yourbrand.com"
               className="w-full bg-transparent text-sm text-text outline-none placeholder:text-text-muted"
             />
           </div>
         </label>
-        <p className="mt-4 text-xs text-text-muted">Enter a URL starting with https://</p>
+        <p className="mt-4 text-xs text-text-muted">Enter a domain name or https URL. Plain text won&apos;t score.</p>
 
         {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
 
@@ -75,7 +76,7 @@ const QuickScanCard = () => {
           className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-accent-purple to-accent-cyan px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(139,92,246,0.24)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(139,92,246,0.3)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? <LoaderCircle className="h-5 w-5 animate-spin" /> : null}
-          Analyze now
+          {loading ? 'Analyzing' : 'Analyze now'}
         </motion.button>
       </form>
     </motion.div>

@@ -1,5 +1,5 @@
 const Scan = require('../models/Scan');
-const { validateScanInput, isValidObjectId } = require('../utils/validators');
+const { normalizeInputUrl, validateScanInput, isValidObjectId } = require('../utils/validators');
 const { sendError, sendSuccess } = require('../utils/responseHelper');
 const { normalizeWhitespace } = require('../services/scanService');
 const { scoreContent } = require('../services/scoringEngine');
@@ -9,7 +9,8 @@ const { getCachedScanResult, setCachedScanResult, normalizeScanCacheKey } = requ
 const createScan = async (req, res, next) => {
   try {
     const { inputUrl } = req.body;
-    const normalizedInputUrl = normalizeScanCacheKey(inputUrl);
+    const canonicalInputUrl = normalizeInputUrl(inputUrl);
+    const normalizedInputUrl = normalizeScanCacheKey(canonicalInputUrl);
     const errors = validateScanInput({ inputUrl });
 
     if (errors.length) {
@@ -20,7 +21,7 @@ const createScan = async (req, res, next) => {
     if (cachedResult) {
       const cachedScan = await Scan.create({
         inputType: 'url',
-        inputUrl: inputUrl.trim(),
+        inputUrl: canonicalInputUrl,
         status: 'completed',
         analysisSource: cachedResult.analysisSource || 'backend',
         inputText: cachedResult.inputText || '',
@@ -41,7 +42,7 @@ const createScan = async (req, res, next) => {
     let sourceText = '';
     let technicalSeo = null;
 
-    const analysis = await analyzeTechnicalSeo(inputUrl.trim());
+    const analysis = await analyzeTechnicalSeo(canonicalInputUrl);
     sourceText = normalizeWhitespace(analysis.contentText || analysis.visibleText || '');
     technicalSeo = analysis.technicalSeo;
 
@@ -54,7 +55,7 @@ const createScan = async (req, res, next) => {
 
     const scan = await Scan.create({
       inputType: 'url',
-      inputUrl: inputUrl.trim(),
+      inputUrl: canonicalInputUrl,
       status: 'completed',
       inputText: sourceText,
       contentScore,

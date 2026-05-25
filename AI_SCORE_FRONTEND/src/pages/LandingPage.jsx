@@ -89,16 +89,6 @@ const faqItems = [
   }
 ];
 
-const comparisonRows = [
-  ['Heading structure', 'Important', 'Critical'],
-  ['Keyword density', 'Important', 'Less so'],
-  ['Answer-format content', 'Moderate', 'Critical'],
-  ['Author credentials', 'Moderate', 'Critical'],
-  ['Backlink count', 'Critical', 'Not direct'],
-  ['Content freshness', 'Moderate', 'Important'],
-  ['Entity clarity', 'Moderate', 'Critical']
-];
-
 const MetricCard = memo(({ value, label }) => (
   <motion.div
     {...hoverLift}
@@ -249,16 +239,16 @@ const LandingPage = () => {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.18 }}
-        className="grid scroll-mt-20 gap-8 rounded-[2rem] border border-border bg-surface p-6 md:scroll-mt-24 md:p-8 lg:grid-cols-[1.05fr_0.95fr]"
+        className="grid scroll-mt-20 gap-8 rounded-[2rem] border border-border bg-surface p-6 md:scroll-mt-24 md:p-8 lg:grid-cols-[0.95fr_1.05fr]"
       >
         <div className="grid gap-4">
           {howItWorks.map((item) => (
             <motion.article
               key={item.title}
               whileHover={{ y: -4 }}
-              className="glass-panel rounded-[1.4rem] p-5"
+              className="rounded-[1.5rem] border border-border bg-bg-elevated p-5 shadow-[0_10px_30px_rgba(24,18,44,0.04)]"
             >
-              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-accent-purple/10 text-accent-purple">
+              <div className="grid h-10 w-10 place-items-center rounded-2xl bg-accent-purple/10 text-accent-purple">
                 <item.icon className="h-5 w-5" />
               </div>
               <h3 className="mt-4 text-lg font-semibold text-text">{item.title}</h3>
@@ -267,34 +257,45 @@ const LandingPage = () => {
           ))}
         </div>
 
-        <div className="grid gap-4">
+        <div className="flex flex-col justify-center gap-4 lg:pl-4">
           <SectionHeading
             eyebrow="How it works"
-            title="Five dimensions, one clear score"
-            text="Technova Hub compares your content against the signals large language models rely on when deciding whether your brand is easy to understand and worth surfacing."
+            title="Built for clarity, trust, and discoverability"
+            text="Technova Hub evaluates how effectively your content communicates with modern AI systems and real users alike. Instead of focusing on outdated optimization tactics, we measure the qualities that help your brand appear accurate, trustworthy, and easy to understand across AI-driven search experiences."
           />
 
-          <div className="overflow-hidden rounded-[1.6rem] border border-border bg-bg-elevated">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-                <thead>
-                  <tr className="bg-surfaceStrong text-[0.72rem] uppercase tracking-[0.22em] text-text-muted">
-                    <th className="px-5 py-4 font-semibold">Factor</th>
-                    <th className="px-5 py-4 font-semibold">Traditional SEO</th>
-                    <th className="px-5 py-4 font-semibold">AI visibility</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {comparisonRows.map((row, index) => (
-                    <tr key={row[0]} className={index % 2 === 0 ? 'bg-transparent' : 'bg-surfaceStrong/60'}>
-                      <td className="px-5 py-4 font-medium text-text">{row[0]}</td>
-                      <td className="px-5 py-4 text-text-muted">{row[1]}</td>
-                      <td className="px-5 py-4 text-text-muted">{row[2]}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="rounded-[1.6rem] border border-border bg-bg-elevated p-6 md:p-8">
+            <p className="text-sm leading-7 text-text-muted md:text-base">
+              Our scoring model is designed to highlight whether your content:
+            </p>
+
+            <ul className="mt-5 grid gap-3 text-sm leading-6 text-text md:text-base">
+              <li className="flex gap-3">
+                <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-accent-purple" />
+                <span>Communicates ideas clearly and consistently</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-accent-cyan" />
+                <span>Provides structured, easy-to-process information</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-accent-purple" />
+                <span>Demonstrates expertise and credibility</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-accent-cyan" />
+                <span>Stays relevant and up to date</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-accent-purple" />
+                <span>Helps AI systems confidently understand your brand and offerings</span>
+              </li>
+            </ul>
+
+            <p className="mt-6 text-sm leading-7 text-text-muted md:text-base">
+              The result is a simple, unified score that reflects your overall AI readiness and content quality
+              — making it easier to identify opportunities for stronger visibility and better user trust.
+            </p>
           </div>
         </div>
       </motion.section>
