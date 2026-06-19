@@ -16,12 +16,13 @@ const allowedOrigins = new Set(
   [
     clientUrl,
     process.env.ALLOWED_ORIGINS,
-    process.env.CLIENT_URLS
+    process.env.CLIENT_URLS,
+    'https://technovahub.in'
   ]
-    .filter(Boolean)
-    .flatMap((value) => String(value).split(','))
-    .map((value) => value.trim())
-    .filter(Boolean)
+  .filter(Boolean)
+  .flatMap((value) => String(value).split(','))
+  .map((value) => value.trim())
+  .filter(Boolean)
 );
 const allowedLocalOrigins = new Set([
   'http://localhost:5173',

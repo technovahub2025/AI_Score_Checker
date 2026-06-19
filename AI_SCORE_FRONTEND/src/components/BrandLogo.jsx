@@ -41,7 +41,7 @@ const BrandLogo = ({ variant = 'header', className = '' }) => {
     <div className={['flex items-center', size.gap, className].filter(Boolean).join(' ')}>
       <div className="grid shrink-0 place-items-center rounded-2xl border border-border bg-white p-1 shadow-[0_10px_24px_rgba(34,24,56,0.08)]">
          <img
-           src={import.meta.env.BASE_URL + "logo.png"}
+           src={import.meta.env.BASE_URL + "logo_2.png"}
            alt="Grand Helm"
            className={['block rounded-[0.85rem] object-cover object-top', size.icon].join(' ')}
          />

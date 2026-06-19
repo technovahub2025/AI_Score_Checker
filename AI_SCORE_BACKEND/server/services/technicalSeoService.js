@@ -255,8 +255,8 @@ const renderPageSnapshot = async (pageUrl) => {
   const browser = await launchBrowser();
   const context = await browser.newContext({
     viewport: RENDER_VIEWPORT,
-    userAgent:
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 TechnovaHubAnalyzer/1.0',
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
     extraHTTPHeaders: {
       'Accept-Language': 'en-US,en;q=0.9'
     }
