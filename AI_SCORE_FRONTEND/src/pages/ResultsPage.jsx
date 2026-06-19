@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ScoreCircle from '../components/ScoreCircle';
 import BreakdownCard from '../components/BreakdownCard';
@@ -16,9 +16,14 @@ const ResultsPage = () => {
   const { getScanByIdRemote } = useScans();
   const [scan, setScan] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showCoverageNotice, setShowCoverageNotice] = useState(false);
   const coverage = scan?.analysisCoverage || scan?.technicalSeo?.evidence?.coverage || 'partial';
   const coverageLabel =
-    coverage === 'full' ? 'Full coverage' : coverage === 'blocked' ? 'Blocked coverage' : 'Partial coverage';
+    coverage === 'full'
+      ? 'Full coverage'
+      : coverage === 'blocked'
+        ? 'Blocked coverage'
+        : 'Full coverage requires rescan';
   const coverageTone =
     coverage === 'full'
       ? 'bg-emerald-500/10 text-emerald-700'
@@ -31,6 +36,7 @@ const ResultsPage = () => {
     let active = true;
     setScan(null);
     setLoading(true);
+    setShowCoverageNotice(false);
 
     getScanByIdRemote(id)
       .then((result) => {
@@ -49,6 +55,20 @@ const ResultsPage = () => {
       active = false;
     };
   }, [getScanByIdRemote, id]);
+
+  useEffect(() => {
+    if (!scan || coverage === 'full') {
+      setShowCoverageNotice(false);
+      return undefined;
+    }
+
+    setShowCoverageNotice(true);
+    const timer = window.setTimeout(() => {
+      setShowCoverageNotice(false);
+    }, 5500);
+
+    return () => window.clearTimeout(timer);
+  }, [coverage, scan]);
 
   if (loading && !scan) {
     return (
@@ -75,6 +95,37 @@ const ResultsPage = () => {
 
   return (
     <motion.div className="grid w-full gap-6" initial={pageMotion.initial} animate={pageMotion.animate} exit={pageMotion.exit} transition={pageMotion.transition}>
+      {showCoverageNotice ? (
+        <motion.div
+          initial={{ opacity: 0, y: -16, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -16, scale: 0.96 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+          className="fixed right-4 top-4 z-50 w-[calc(100vw-2rem)] max-w-md rounded-2xl border border-amber-500/25 bg-[#fff8e8] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.18)] dark:bg-[#1a160f]"
+          role="alert"
+          aria-live="polite"
+        >
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-500/15 text-amber-700 dark:text-amber-300">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-text">Full coverage requires a rescan</p>
+              <p className="mt-1 text-sm leading-6 text-text-muted">
+                Some technical checks were only partially reachable. Run the scan again to get full coverage.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCoverageNotice(false)}
+              className="rounded-full p-1.5 text-text-muted transition hover:bg-black/5 hover:text-text dark:hover:bg-white/10"
+              aria-label="Dismiss notification"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </motion.div>
+      ) : null}
       <motion.section
         variants={sectionReveal}
         initial="hidden"
@@ -92,7 +143,7 @@ const ResultsPage = () => {
             </span>
             {limited ? (
               <span className="rounded-full border border-border bg-bg-elevated px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
-                Score limited by reachability
+                Coverage limited
               </span>
             ) : null}
           </div>

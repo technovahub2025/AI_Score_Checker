@@ -69,7 +69,12 @@ const TechnicalSeoPanel = ({ technicalSeo, inputType }) => {
   const analysisMode = technicalSeo?.evidence?.analysisMode;
   const coverage = technicalSeo?.coverage || technicalSeo?.evidence?.coverage || 'partial';
   const limited = Boolean(technicalSeo?.limited || technicalSeo?.evidence?.limited || coverage !== 'full');
-  const coverageLabel = coverage === 'full' ? 'Full coverage' : coverage === 'blocked' ? 'Blocked coverage' : 'Partial coverage';
+  const coverageLabel =
+    coverage === 'full'
+      ? 'Full coverage'
+      : coverage === 'blocked'
+        ? 'Blocked coverage'
+        : 'Full coverage requires rescan';
 
   return (
     <motion.section
@@ -116,7 +121,7 @@ const TechnicalSeoPanel = ({ technicalSeo, inputType }) => {
 
       {limited ? (
         <div className="mb-4 rounded-2xl border border-amber-500/20 bg-amber-500/8 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
-          This score is limited because some technical checks were not fully reachable.
+          This score is limited because some technical checks were not fully reachable. Rescan required for full coverage.
         </div>
       ) : null}
 
