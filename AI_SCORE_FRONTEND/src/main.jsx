@@ -9,7 +9,7 @@ import './styles/globals.css';
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <MotionConfig reducedMotion="user">
-      <BrowserRouter>
+      <BrowserRouter basename="/ai_score_checker">
         <AppProviders>
           <App />
         </AppProviders>

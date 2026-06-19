@@ -15,6 +15,29 @@ const App = () => {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [location.pathname]);
 
+  // Keepalive to prevent cold starts on Render
+  useEffect(() => {
+    const keepalive = async () => {
+      try {
+        const response = await fetch('/api/health');
+        if (!response.ok) {
+          console.warn('Keepalive request failed:', response.status);
+        }
+      } catch (error) {
+        console.warn('Keepalive request error:', error);
+      }
+    };
+
+    // Call immediately on mount
+    keepalive();
+
+    // Set interval to call every 10 minutes (600000ms)
+    const intervalId = setInterval(keepalive, 10 * 60 * 1000);
+
+    // Cleanup on unmount
+    return () => clearInterval(intervalId);
+  }, []);
+
   const routes = useMemo(
     () => (
       <Routes location={location} key={location.pathname}>

@@ -15,7 +15,7 @@ try {
 const REQUEST_TIMEOUT_MS = 8000;
 const ROBOTS_TIMEOUT_MS = 4000;
 const SITEMAP_TIMEOUT_MS = 4000;
-const RENDER_TIMEOUT_MS = 12000;
+const RENDER_TIMEOUT_MS = 15000;
 const RENDER_IDLE_TIMEOUT_MS = 5000;
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_REDIRECTS = 5;
@@ -263,17 +263,12 @@ const renderPageSnapshot = async (pageUrl) => {
   });
 
   const page = await context.newPage();
-  let navigationError = null;
 
   try {
-    try {
-      await page.goto(pageUrl, {
-        waitUntil: 'domcontentloaded',
-        timeout: RENDER_TIMEOUT_MS
-      });
-    } catch (error) {
-      navigationError = error;
-    }
+    await page.goto(pageUrl, {
+      waitUntil: 'domcontentloaded',
+      timeout: RENDER_TIMEOUT_MS
+    });
 
     await page.waitForLoadState('networkidle', { timeout: RENDER_IDLE_TIMEOUT_MS }).catch(() => {});
     await page.waitForTimeout(1000).catch(() => {});
@@ -289,10 +284,6 @@ const renderPageSnapshot = async (pageUrl) => {
         paragraphCount: 0
       }))
     ]);
-
-    if (!html && !signals.filteredText && navigationError) {
-      throw navigationError;
-    }
 
     return {
       html,
@@ -920,161 +911,144 @@ const deriveCoverage = ({ analysisMode, checks }) => {
 
 const analyzeTechnicalSeo = async (pageUrl) => {
   const targetUrl = await isPublicHttpUrl(pageUrl);
-  let pageResult;
-  let renderedSnapshot = null;
-  let renderError = null;
-
+  
+  // Try to render the page with Playwright - if this fails, we should not fall back to axios
+  // as that would produce a deflated score on partial data
   try {
-    renderedSnapshot = await renderPageSnapshot(targetUrl.toString());
-  } catch (error) {
-    renderError = error;
-  }
+    const renderedSnapshot = await renderPageSnapshot(targetUrl.toString());
+    
+    const finalUrl = renderedSnapshot?.finalUrl || targetUrl.toString();
+    const html = renderedSnapshot?.html || '';
+    const $ = cheerio.load(html || '');
+    const richText = extractRichText(html);
+    const needsMirror =
+      richText.length < MIRROR_MIN_CONTENT_LENGTH || (renderedSnapshot?.analysisMode !== 'rendered' && richText.length < 900);
+    const mirrorPromise = needsMirror ? fetchReadableMirror(finalUrl || targetUrl.toString()) : Promise.resolve('');
+    const mirrorText =
+      await mirrorPromise;
+    const baseVisibleText = renderedSnapshot?.bodyText || extractVisibleText(html) || richText;
+    const baseContentText = renderedSnapshot?.filteredText || renderedSnapshot?.bodyText || richText || extractVisibleText(html);
+    const visibleText = normalizeWhitespace(mirrorText && baseVisibleText.length < MIRROR_MIN_CONTENT_LENGTH ? mirrorText : baseVisibleText);
+    const contentText = normalizeWhitespace(mirrorText && baseContentText.length < MIRROR_MIN_CONTENT_LENGTH ? mirrorText : baseContentText);
 
-  if (!renderedSnapshot) {
-    try {
-      pageResult = await fetchWithLimits(targetUrl.toString(), {
-        timeoutMs: REQUEST_TIMEOUT_MS,
-        maxBytes: MAX_BODY_BYTES
-      });
-    } catch (error) {
-      const fallback = buildUnavailableTechnicalSeo({
-        finalUrl: targetUrl.toString(),
-        reason: error.message || renderError?.message || 'Page fetch failed.'
-      });
+    const origin = new URL(finalUrl).origin;
+    const robotsUrl = new URL('/robots.txt', origin).href;
+    const robotsPromise = fetchTextResource(robotsUrl, { timeoutMs: ROBOTS_TIMEOUT_MS, maxBytes: 250_000 });
+    const robotsResult = await robotsPromise;
+    const robotsText = robotsResult.body || '';
 
-      return {
-        contentText: '',
-        visibleText: '',
-        technicalSeo: fallback
-      };
-    }
-  }
+    const sitemapUrls = [];
+    const robotsSitemaps = [...(robotsText.match(/^sitemap:\s*(.+)$/gim) || [])]
+      .map((line) => line.split(/sitemap:\s*/i)[1])
+      .map((value) => normalizeWhitespace(value))
+      .filter(Boolean);
 
-  const finalUrl = renderedSnapshot?.finalUrl || pageResult?.finalUrl || targetUrl.toString();
-  const html = renderedSnapshot?.html || pageResult?.body || '';
-  const $ = cheerio.load(html || '');
-  const richText = extractRichText(html);
-  const needsMirror =
-    richText.length < MIRROR_MIN_CONTENT_LENGTH || (renderedSnapshot?.analysisMode !== 'rendered' && richText.length < 900);
-  const mirrorPromise = needsMirror ? fetchReadableMirror(finalUrl || targetUrl.toString()) : Promise.resolve('');
-  const mirrorText =
-    await mirrorPromise;
-  const baseVisibleText = renderedSnapshot?.bodyText || extractVisibleText(html) || richText;
-  const baseContentText = renderedSnapshot?.filteredText || renderedSnapshot?.bodyText || richText || extractVisibleText(html);
-  const visibleText = normalizeWhitespace(mirrorText && baseVisibleText.length < MIRROR_MIN_CONTENT_LENGTH ? mirrorText : baseVisibleText);
-  const contentText = normalizeWhitespace(mirrorText && baseContentText.length < MIRROR_MIN_CONTENT_LENGTH ? mirrorText : baseContentText);
+    const resolvedRobotsSitemaps = robotsSitemaps
+      .map((item) => {
+        try {
+          return new URL(item, origin).href;
+        } catch (error) {
+          return '';
+        }
+      })
+      .filter(Boolean);
 
-  const origin = new URL(finalUrl).origin;
-  const robotsUrl = new URL('/robots.txt', origin).href;
-  const robotsPromise = fetchTextResource(robotsUrl, { timeoutMs: ROBOTS_TIMEOUT_MS, maxBytes: 250_000 });
-  const robotsResult = await robotsPromise;
-  const robotsText = robotsResult.body || '';
+    sitemapUrls.push(...resolvedRobotsSitemaps);
+    sitemapUrls.push(new URL('/sitemap.xml', origin).href);
+    sitemapUrls.push(new URL('/sitemap_index.xml', origin).href);
+    sitemapUrls.push(new URL('/sitemap-index.xml', origin).href);
 
-  const sitemapUrls = [];
-  const robotsSitemaps = [...(robotsText.match(/^sitemap:\s*(.+)$/gim) || [])]
-    .map((line) => line.split(/sitemap:\s*/i)[1])
-    .map((value) => normalizeWhitespace(value))
-    .filter(Boolean);
+    const robots = scoreRobotsTxt(robotsResult);
+    const sitemap = await scoreSitemap({ sitemapUrls });
+    const canonical = scoreCanonical($, finalUrl);
+    const metaTags = scoreMetaTags($);
+    const schema = scoreSchema($);
 
-  const resolvedRobotsSitemaps = robotsSitemaps
-    .map((item) => {
-      try {
-        return new URL(item, origin).href;
-      } catch (error) {
-        return '';
+    const checks = [
+      {
+        key: 'robots',
+        label: 'robots.txt',
+        status: robots.status,
+        score: robots.score,
+        weight: 20,
+        explanation: robots.explanation,
+        evidence: robots.evidence
+      },
+      {
+        key: 'sitemap',
+        label: 'Sitemap',
+        status: sitemap.status,
+        score: sitemap.score,
+        weight: 20,
+        explanation: sitemap.explanation,
+        evidence: sitemap.evidence
+      },
+      {
+        key: 'canonical',
+        label: 'Canonical',
+        status: canonical.status,
+        score: canonical.score,
+        weight: 20,
+        explanation: canonical.explanation,
+        evidence: canonical.evidence
+      },
+      {
+        key: 'metaTags',
+        label: 'Meta tags',
+        status: metaTags.status,
+        score: metaTags.score,
+        weight: 20,
+        explanation: metaTags.explanation,
+        evidence: metaTags.evidence
+      },
+      {
+        key: 'schema',
+        label: 'Schema',
+        status: schema.status,
+        score: schema.score,
+        weight: 20,
+        explanation: schema.explanation,
+        evidence: schema.evidence
       }
-    })
-    .filter(Boolean);
+    ];
 
-  sitemapUrls.push(...resolvedRobotsSitemaps);
-  sitemapUrls.push(new URL('/sitemap.xml', origin).href);
-  sitemapUrls.push(new URL('/sitemap_index.xml', origin).href);
-  sitemapUrls.push(new URL('/sitemap-index.xml', origin).href);
+    const score = clamp(checks.reduce((sum, item) => sum + (item.score * item.weight) / 100, 0));
+    const coverage = deriveCoverage({
+      analysisMode: renderedSnapshot?.analysisMode || 'raw',
+      checks
+    });
+    const limited = coverage !== 'full';
 
-  const robots = scoreRobotsTxt(robotsResult);
-  const sitemap = await scoreSitemap({ sitemapUrls });
-  const canonical = scoreCanonical($, finalUrl);
-  const metaTags = scoreMetaTags($);
-  const schema = scoreSchema($);
-
-  const checks = [
-    {
-      key: 'robots',
-      label: 'robots.txt',
-      status: robots.status,
-      score: robots.score,
-      weight: 20,
-      explanation: robots.explanation,
-      evidence: robots.evidence
-    },
-    {
-      key: 'sitemap',
-      label: 'Sitemap',
-      status: sitemap.status,
-      score: sitemap.score,
-      weight: 20,
-      explanation: sitemap.explanation,
-      evidence: sitemap.evidence
-    },
-    {
-      key: 'canonical',
-      label: 'Canonical',
-      status: canonical.status,
-      score: canonical.score,
-      weight: 20,
-      explanation: canonical.explanation,
-      evidence: canonical.evidence
-    },
-    {
-      key: 'metaTags',
-      label: 'Meta tags',
-      status: metaTags.status,
-      score: metaTags.score,
-      weight: 20,
-      explanation: metaTags.explanation,
-      evidence: metaTags.evidence
-    },
-    {
-      key: 'schema',
-      label: 'Schema',
-      status: schema.status,
-      score: schema.score,
-      weight: 20,
-      explanation: schema.explanation,
-      evidence: schema.evidence
-    }
-  ];
-
-  const score = clamp(checks.reduce((sum, item) => sum + (item.score * item.weight) / 100, 0));
-  const coverage = deriveCoverage({
-    analysisMode: renderedSnapshot?.analysisMode || 'raw',
-    checks
-  });
-  const limited = coverage !== 'full';
-
-  return {
-    contentText,
-    visibleText,
-    technicalSeo: {
-      score,
-      coverage,
-      limited,
-      checks,
-      evidence: {
-        finalUrl,
-        canonicalUrl: canonical.canonicalUrl || '',
-        robotsUrl,
-        sitemapUrls: [...new Set(sitemapUrls)],
-        schemaCount: schema.schemaCount || 0,
-        analysisMode: renderedSnapshot?.analysisMode || 'raw',
+    return {
+      contentText,
+      visibleText,
+      technicalSeo: {
+        score,
         coverage,
         limited,
-        title: renderedSnapshot?.title || '',
-        description: renderedSnapshot?.description || '',
-        contentLength: contentText.length
+        checks,
+        evidence: {
+          finalUrl,
+          canonicalUrl: canonical.canonicalUrl || '',
+          robotsUrl,
+          sitemapUrls: [...new Set(sitemapUrls)],
+          schemaCount: schema.schemaCount || 0,
+          analysisMode: renderedSnapshot?.analysisMode || 'raw',
+          coverage,
+          limited,
+          title: renderedSnapshot?.title || '',
+          description: renderedSnapshot?.description || '',
+          contentLength: contentText.length
+        }
       }
-    }
-  };
+    };
+  } catch (renderError) {
+    // If Playwright fails to load the page, throw an error instead of falling back to axios
+    // This prevents returning a deflated score on partial data
+    const error = new Error(`Could not load this URL — please check it is publicly accessible: ${renderError.message}`);
+    error.statusCode = 400;
+    throw error;
+  }
 };
 
 module.exports = {

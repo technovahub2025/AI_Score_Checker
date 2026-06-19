@@ -21,11 +21,11 @@ const BrandLogo = ({ variant = 'header', className = '' }) => {
     return (
       <div className={['flex items-center text-left', size.gap, className].filter(Boolean).join(' ')}>
         <div className="grid shrink-0 place-items-center overflow-hidden rounded-[1rem] border border-border bg-white p-1 shadow-[0_10px_24px_rgba(34,24,56,0.08)]">
-          <img
-            src="/logo_2.png"
-            alt="Technova Hub"
-            className={['block rounded-[0.75rem] object-contain', size.icon].join(' ')}
-          />
+           <img
+             src={import.meta.env.BASE_URL + "logo_2.png"}
+             alt="Technova Hub"
+             className={['block rounded-[0.75rem] object-contain', size.icon].join(' ')}
+           />
         </div>
         <div className="flex min-w-0 flex-col items-start gap-1">
           <p className={['text-text', size.title].join(' ')}>Technova Hub</p>
@@ -40,11 +40,11 @@ const BrandLogo = ({ variant = 'header', className = '' }) => {
   return (
     <div className={['flex items-center', size.gap, className].filter(Boolean).join(' ')}>
       <div className="grid shrink-0 place-items-center rounded-2xl border border-border bg-white p-1 shadow-[0_10px_24px_rgba(34,24,56,0.08)]">
-        <img
-          src="/logo.png"
-          alt="Grand Helm"
-          className={['block rounded-[0.85rem] object-cover object-top', size.icon].join(' ')}
-        />
+         <img
+           src={import.meta.env.BASE_URL + "logo.png"}
+           alt="Grand Helm"
+           className={['block rounded-[0.85rem] object-cover object-top', size.icon].join(' ')}
+         />
       </div>
       <div className="hidden sm:block">
         <p className={['uppercase tracking-[0.24em] text-text-muted', size.eyebrow].join(' ')}>AI Visibility</p>

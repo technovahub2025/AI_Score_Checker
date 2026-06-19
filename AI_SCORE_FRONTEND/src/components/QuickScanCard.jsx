@@ -5,20 +5,87 @@ import useScan from '../hooks/useScan';
 import { normalizeScanUrl } from '../utils/formatters';
 import { hoverLift, pressScale, sectionReveal } from '../utils/motion';
 
+// Frontend URL normalization for display and basic validation
+const normalizeFrontendUrl = (input) => {
+  // Trim whitespace
+  let url = String(input || '').trim();
+
+  // Return empty if empty
+  if (!url) return '';
+
+  // Strip markdown link format like [text](url) and extract the URL
+  const markdownMatch = url.match(/\[[^\]]*]\(([^)]+)\)/);
+  if (markdownMatch) {
+    url = markdownMatch[1];
+  }
+
+  // Prepend https:// if no protocol is present
+  if (!/^https?:\/\//i.test(url)) {
+    url = `https://${url}`;
+  }
+
+  // Try to parse as URL for basic validation
+  try {
+    const parsed = new URL(url);
+    
+    // Strip www. from hostname for comparison purposes
+    const hostname = parsed.hostname.replace(/^www\./, '');
+    const pathname = parsed.pathname || '/';
+    
+    // Reconstruct with normalized hostname
+    parsed.hostname = hostname;
+    parsed.pathname = pathname;
+    
+    return parsed.toString();
+  } catch (error) {
+    // Invalid URL
+    return '';
+  }
+};
+
 const QuickScanCard = () => {
   const [url, setUrl] = useState('');
   const { loading, error, setError, submit } = useScan();
 
-  const isValid = useMemo(() => {
-    return Boolean(normalizeScanUrl(url));
-  }, [url]);
+  // Use our frontend normalization for UI hint and basic validation
+  const normalizedUrl = useMemo(() => normalizeFrontendUrl(url), [url]);
+  
+  // Additional validation: must have a dot in hostname and not be just https://
+  const isValidFormat = useMemo(() => {
+    if (!normalizedUrl) return false;
+    try {
+      const urlObj = new URL(normalizedUrl);
+      const hostname = urlObj.hostname;
+      // Must have at least one dot in hostname and not be just "https://"
+      return hostname.includes('.') && hostname.length > 4;
+    } catch (e) {
+      return false;
+    }
+  }, [normalizedUrl]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const normalizedUrl = normalizeScanUrl(url);
-    if (!normalizedUrl) return;
+    const normalized = normalizeFrontendUrl(url);
+    if (!normalized) {
+      setError('Please enter a valid URL');
+      return;
+    }
+    
+    // Additional validation
+    try {
+      const urlObj = new URL(normalized);
+      const hostname = urlObj.hostname;
+      if (!hostname.includes('.') || hostname.length <= 4) {
+        setError('Please enter a valid domain name');
+        return;
+      }
+    } catch (e) {
+      setError('Please enter a valid URL');
+      return;
+    }
+    
     await submit({
-      input: normalizedUrl
+      input: normalized
     });
   };
 
@@ -66,13 +133,20 @@ const QuickScanCard = () => {
           </div>
         </label>
         <p className="mt-4 text-xs text-text-muted">Enter a domain name or https URL. Plain text won&apos;t score.</p>
+        
+        {/* Show normalized URL as hint */}
+        {normalizedUrl && !loading && (
+          <p className="mt-2 text-xs text-text-muted truncate">
+            We&apos;ll scan: <span className="font-mono text-text">{normalizedUrl}</span>
+          </p>
+        )}
 
         {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
 
         <motion.button
           {...pressScale}
           type="submit"
-          disabled={!isValid || loading}
+          disabled={!isValidFormat || loading}
           className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-accent-purple to-accent-cyan px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(139,92,246,0.24)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(139,92,246,0.3)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? <LoaderCircle className="h-5 w-5 animate-spin" /> : null}

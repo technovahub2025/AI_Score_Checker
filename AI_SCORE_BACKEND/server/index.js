@@ -70,6 +70,11 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'API is running' });
 });
 
+// Health check endpoint for Render
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: Date.now() });
+});
+
 app.use('/api', scanRoutes);
 
 app.use((req, res, next) => {

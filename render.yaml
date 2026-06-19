@@ -7,3 +7,4 @@ services:
     buildCommand: npm install && npx playwright install chromium
     startCommand: npm start
     autoDeploy: true
+    healthCheckPath: /health

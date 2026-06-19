@@ -5,13 +5,47 @@ const { normalizeWhitespace } = require('../services/scanService');
 const { scoreContent } = require('../services/scoringEngine');
 const { analyzeTechnicalSeo } = require('../services/technicalSeoService');
 const { getCachedScanResult, setCachedScanResult, normalizeScanCacheKey } = require('../services/scanCacheService');
+const { normalizeUrl } = require('../utils/normalizeUrl');
 
 const createScan = async (req, res, next) => {
   try {
     const { inputUrl } = req.body;
-    const canonicalInputUrl = normalizeInputUrl(inputUrl);
+    
+    // Normalize the URL using our new utility
+    let normalizedUrl;
+    try {
+      normalizedUrl = normalizeUrl(inputUrl);
+      console.log('[scan] raw:', inputUrl, '→ normalized:', normalizedUrl);
+    } catch (error) {
+      return sendError(res, `Invalid URL: ${error.message}`, 400);
+    }
+    
+    // Check for recent scan in database (within last 60 seconds) to prevent duplicates
+    // We'll check for scans from the last 60 seconds and normalize their URLs to see if they match
+    const sixtySecondsAgo = new Date(Date.now() - 60 * 1000);
+    const recentScans = await Scan.find({
+      inputType: 'url',
+      status: 'completed',
+      createdAt: { $gte: sixtySecondsAgo }
+    }).sort({ createdAt: -1 });
+    
+    // Check if any recent scan matches our normalized URL
+    for (const scan of recentScans) {
+      try {
+        const scannedNormalized = normalizeUrl(scan.inputUrl);
+        if (scannedNormalized === normalizedUrl) {
+          console.log('[scan] returning recent scan for:', normalizedUrl);
+          return sendSuccess(res, scan, 200);
+        }
+      } catch (normalizeError) {
+        // If we can't normalize the stored URL, skip it
+        continue;
+      }
+    }
+    
+    const canonicalInputUrl = normalizeInputUrl(normalizedUrl);
     const normalizedInputUrl = normalizeScanCacheKey(canonicalInputUrl);
-    const errors = validateScanInput({ inputUrl });
+    const errors = validateScanInput({ inputUrl: normalizedUrl });
 
     if (errors.length) {
       return sendError(res, errors.join(' '), 400);
@@ -42,7 +76,7 @@ const createScan = async (req, res, next) => {
     let sourceText = '';
     let technicalSeo = null;
 
-    const analysis = await analyzeTechnicalSeo(canonicalInputUrl);
+    const analysis = await analyzeTechnicalSeo(normalizedUrl);
     sourceText = normalizeWhitespace(analysis.contentText || analysis.visibleText || '');
     technicalSeo = analysis.technicalSeo;
 
