@@ -1,38 +1,43 @@
-require('dotenv').config();
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "..", ".env") });
 
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
-const connectDB = require('./config/db');
-const scanRoutes = require('./routes/scanRoutes');
-const errorHandler = require('./middleware/errorHandler');
-const { pruneScans } = require('./services/scanRetentionService');
+const express = require("express");
+const cors = require("cors");
+const helmet = require("helmet");
+const morgan = require("morgan");
+
+const connectDB = require("./config/db");
+const scanRoutes = require("./routes/scanRoutes");
+const errorHandler = require("./middleware/errorHandler");
+const { pruneScans } = require("./services/scanRetentionService");
 
 const app = express();
 const port = process.env.PORT || 5000;
 const clientUrl = process.env.CLIENT_URL;
+
 const allowedOrigins = new Set(
   [
     clientUrl,
     process.env.ALLOWED_ORIGINS,
     process.env.CLIENT_URLS,
-    'https://technovahub.in'
+    "https://technovahub.in",
+    "https://www.technovahub.in",
   ]
-  .filter(Boolean)
-  .flatMap((value) => String(value).split(','))
-  .map((value) => value.trim())
-  .filter(Boolean)
+    .filter(Boolean)
+    .flatMap((value) => String(value).split(","))
+    .map((value) => value.trim())
+    .filter(Boolean)
 );
+
 const allowedLocalOrigins = new Set([
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:5174',
-  'http://localhost:3000',
-  'http://localhost:4173',
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5174",
+  "http://localhost:3000",
+  "http://localhost:4173",
   'https://www.technovahub.in',
-  'https://technovahub.in'
+   'https://technovahub.in'
 ]);
 
 const corsOrigin = (origin, callback) => {
@@ -52,7 +57,10 @@ const corsOrigin = (origin, callback) => {
     return callback(null, true);
   }
 
-  if (/^https:\/\/([a-z0-9-]+\.)?vercel\.app$/i.test(origin) || /^https:\/\/([a-z0-9-]+\.)?vercel\.com$/i.test(origin)) {
+  if (
+    /^https:\/\/([a-z0-9-]+\.)?vercel\.app$/i.test(origin) ||
+    /^https:\/\/([a-z0-9-]+\.)?vercel\.com$/i.test(origin)
+  ) {
     return callback(null, true);
   }
 
@@ -62,46 +70,56 @@ const corsOrigin = (origin, callback) => {
 app.use(
   cors({
     origin: corsOrigin,
-    credentials: true
+    credentials: true,
   })
 );
+
 app.use(helmet());
-app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
-app.use(express.json({ limit: '1mb' }));
+app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+app.use(express.json({ limit: "1mb" }));
 
-app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'API is running' });
+app.get("/api/health", (req, res) => {
+  res.json({ success: true, message: "API is running" });
 });
 
-// Health check endpoint for Render
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: Date.now() });
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", timestamp: Date.now() });
 });
 
-app.use('/api', scanRoutes);
+app.get("/favicon.ico", (req, res) => {
+  res.status(204).end();
+});
+
+app.use("/api", scanRoutes);
 
 app.use((req, res, next) => {
-  const error = new Error('Route not found.');
+  const error = new Error("Route not found.");
   error.statusCode = 404;
   next(error);
 });
 
 app.use(errorHandler);
 
-connectDB().then(() => {
-  app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
+connectDB()
+  .then(() => {
+    app.listen(port, () => {
+      console.log(`Server running on port ${port}`);
+    });
+
+    const RETENTION_SWEEP_MS = 24 * 60 * 60 * 1000;
+
+    const runRetentionSweep = async () => {
+      try {
+        await pruneScans();
+      } catch (error) {
+        console.error("Retention sweep failed:", error.message || error);
+      }
+    };
+
+    void runRetentionSweep();
+    setInterval(runRetentionSweep, RETENTION_SWEEP_MS);
+  })
+  .catch((error) => {
+    console.error("Database connection failed:", error.message || error);
+    process.exit(1);
   });
-
-  const RETENTION_SWEEP_MS = 24 * 60 * 60 * 1000;
-  const runRetentionSweep = async () => {
-    try {
-      await pruneScans();
-    } catch (error) {
-      console.error('Retention sweep failed:', error.message || error);
-    }
-  };
-
-  void runRetentionSweep();
-  setInterval(runRetentionSweep, RETENTION_SWEEP_MS);
-});
