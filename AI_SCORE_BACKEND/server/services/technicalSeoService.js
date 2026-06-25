@@ -1,5 +1,6 @@
 const cheerio = require('cheerio');
 const dns = require('dns').promises;
+const fs = require('fs');
 const net = require('net');
 const { URL } = require('url');
 const { normalizeWhitespace } = require('./scanService');
@@ -16,6 +17,7 @@ const ROBOTS_TIMEOUT_MS = 4000;
 const SITEMAP_TIMEOUT_MS = 4000;
 const RENDER_TIMEOUT_MS = 15000;
 const RENDER_IDLE_TIMEOUT_MS = 5000;
+const ANALYSIS_TIMEOUT_MS = 18000;
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_REDIRECTS = 5;
 const RENDER_VIEWPORT = { width: 1440, height: 1200 };
@@ -24,8 +26,6 @@ const MIRROR_MIN_CONTENT_LENGTH = 400;
 const DNS_CACHE_TTL_MS = 30 * 60 * 1000;
 const RESOURCE_CACHE_TTL_MS = 5 * 60 * 1000;
 const MIRROR_CACHE_TTL_MS = 10 * 60 * 1000;
-const DNS_LOOKUP_TIMEOUT_MS = 5000;
-const BROWSER_LAUNCH_TIMEOUT_MS = 20000;
 
 const PRIVATE_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
 let browserPromise = null;
@@ -35,24 +35,6 @@ const resourceCache = new Map();
 const mirrorCache = new Map();
 
 const clamp = (value) => Math.max(0, Math.min(100, Math.round(value)));
-
-const logSeoStep = (...args) => {
-  console.log('[technical-seo]', ...args);
-};
-
-const withTimeout = async (promise, timeoutMs, label) => {
-  let timer;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
-      })
-    ]);
-  } finally {
-    clearTimeout(timer);
-  }
-};
 
 const setCacheEntry = (cache, key, value, ttlMs) => {
   cache.set(key, {
@@ -131,11 +113,7 @@ const isPublicHttpUrl = async (inputUrl) => {
     throw error;
   }
 
-  const resolved = await withTimeout(
-    dns.lookup(hostname, { all: true, verbatim: true }),
-    DNS_LOOKUP_TIMEOUT_MS,
-    `DNS lookup for ${hostname}`
-  );
+  const resolved = await dns.lookup(hostname, { all: true, verbatim: true });
   if (!resolved.length || resolved.some((item) => isPrivateAddress(item.address))) {
     const error = new Error('Private or local URLs are not supported.');
     error.statusCode = 400;
@@ -149,7 +127,9 @@ const isPublicHttpUrl = async (inputUrl) => {
 
 const getBrowser = async () => {
   if (!chromium) {
-    throw new Error('Browser rendering is unavailable.');
+    const error = new Error('Chromium browser is not available at runtime. Install it during build (postinstall) rather than inside a request.');
+    error.code = 'PLAYWRIGHT_BROWSER_UNAVAILABLE';
+    throw error;
   }
 
   if (browserInstance) {
@@ -179,56 +159,41 @@ const getBrowser = async () => {
   return browserPromise;
 };
 
+const isChromiumAvailable = () => {
+  if (!chromium) {
+    return false;
+  }
+
+  try {
+    const executablePath = chromium.executablePath();
+    return Boolean(executablePath && fs.existsSync(executablePath));
+  } catch (error) {
+    void error;
+    return false;
+  }
+};
+
 const launchBrowser = async () => {
-  try {
-    logSeoStep('Launching browser');
-    const browser = await withTimeout(getBrowser(), BROWSER_LAUNCH_TIMEOUT_MS, 'Browser launch');
-    logSeoStep('Browser launched');
-    return browser;
-  } catch (error) {
-    const message = String(error?.message || '');
-    const missingBrowser =
-      /Executable doesn't exist/i.test(message) ||
-      /browser has been installed/i.test(message) ||
-      /Failed to launch the browser process/i.test(message) ||
-      /Browser was not found/i.test(message) ||
-      /chromium/i.test(message) && /not found/i.test(message);
+  return getBrowser();
+};
 
-    if (!missingBrowser) {
-      throw error;
-    }
+const withTimeout = (promise, timeoutMs, timeoutMessage) =>
+  new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(Object.assign(new Error(timeoutMessage), { statusCode: 504 }));
+    }, timeoutMs);
 
-    const browserError = new Error(
-      'Chromium browser is not available at runtime. Install it during build (postinstall) rather than inside a request.'
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
     );
-    browserError.statusCode = 503;
-    throw browserError;
-  }
-};
-
-const closeBrowser = async () => {
-  if (!browserInstance) {
-    return;
-  }
-
-  const browser = browserInstance;
-  browserInstance = null;
-  browserPromise = null;
-
-  try {
-    await browser.close();
-  } catch (error) {
-    logSeoStep('Browser close failed', error.message || error);
-  }
-};
-
-process.once('SIGTERM', () => {
-  void closeBrowser();
-});
-
-process.once('SIGINT', () => {
-  void closeBrowser();
-});
+  });
 
 const extractRenderedSignals = async (page) => {
   return page.evaluate(() => {
@@ -261,12 +226,15 @@ const extractRenderedSignals = async (page) => {
 };
 
 const renderPageSnapshot = async (pageUrl) => {
+  if (!isChromiumAvailable()) {
+    return null;
+  }
+
   const browser = await launchBrowser();
-  logSeoStep('Creating browser context for', pageUrl);
   const context = await browser.newContext({
     viewport: RENDER_VIEWPORT,
-    userAgent:
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
     extraHTTPHeaders: {
       'Accept-Language': 'en-US,en;q=0.9'
     }
@@ -275,17 +243,14 @@ const renderPageSnapshot = async (pageUrl) => {
   const page = await context.newPage();
 
   try {
-    logSeoStep('Opening page', pageUrl);
     await page.goto(pageUrl, {
       waitUntil: 'domcontentloaded',
       timeout: RENDER_TIMEOUT_MS
     });
-    logSeoStep('Page loaded', page.url() || pageUrl);
 
     await page.waitForLoadState('networkidle', { timeout: RENDER_IDLE_TIMEOUT_MS }).catch(() => {});
     await page.waitForTimeout(1000).catch(() => {});
 
-    logSeoStep('Extracting HTML and rendered signals');
     const [html, signals] = await Promise.all([
       page.content().catch(() => ''),
       extractRenderedSignals(page).catch(() => ({
@@ -297,7 +262,6 @@ const renderPageSnapshot = async (pageUrl) => {
         paragraphCount: 0
       }))
     ]);
-    logSeoStep('HTML extraction complete');
 
     return {
       html,
@@ -309,6 +273,51 @@ const renderPageSnapshot = async (pageUrl) => {
     await page.close().catch(() => {});
     await context.close().catch(() => {});
   }
+};
+
+const fetchRawPageSnapshot = async (pageUrl) => {
+  const { response, body, finalUrl } = await fetchWithLimits(pageUrl, {
+    timeoutMs: RENDER_TIMEOUT_MS,
+    maxBytes: MAX_BODY_BYTES
+  });
+
+  if (!response) {
+    const error = new Error('Unable to fetch the page.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const html = body || '';
+  let title = '';
+  let description = '';
+  let bodyText = '';
+  let filteredText = '';
+  let headingsCount = 0;
+  let paragraphCount = 0;
+
+  try {
+    const $ = cheerio.load(html);
+    title = normalizeWhitespace($('title').first().text() || '');
+    description = normalizeWhitespace($('meta[name="description"]').attr('content') || '');
+    bodyText = extractVisibleText(html);
+    filteredText = extractRichText(html);
+    headingsCount = $('h1, h2, h3').length;
+    paragraphCount = $('p, li').length;
+  } catch (error) {
+    void error;
+  }
+
+  return {
+    html,
+    finalUrl,
+    title,
+    description,
+    bodyText,
+    filteredText,
+    headingsCount,
+    paragraphCount,
+    analysisMode: 'raw'
+  };
 };
 
 const readResponseBody = async (response, maxBytes = MAX_BODY_BYTES, timeoutMs = REQUEST_TIMEOUT_MS) => {
@@ -532,10 +541,9 @@ const fetchReadableMirror = async (pageUrl) => {
   ];
 
   for (const candidate of candidates) {
-    let timeout;
     try {
       const controller = new AbortController();
-      timeout = setTimeout(() => controller.abort(new Error('Mirror request timed out.')), MIRROR_TIMEOUT_MS);
+      const timeout = setTimeout(() => controller.abort(new Error('Mirror request timed out.')), MIRROR_TIMEOUT_MS);
       const response = await fetch(candidate, {
         method: 'GET',
         signal: controller.signal,
@@ -543,6 +551,7 @@ const fetchReadableMirror = async (pageUrl) => {
           Accept: 'text/plain'
         }
       });
+      clearTimeout(timeout);
 
       if (!response.ok) {
         continue;
@@ -556,8 +565,6 @@ const fetchReadableMirror = async (pageUrl) => {
       }
     } catch (error) {
       void error;
-    } finally {
-      clearTimeout(timeout);
     }
   }
 
@@ -925,16 +932,15 @@ const deriveCoverage = ({ analysisMode, checks }) => {
   return 'partial';
 };
 
-const analyzeTechnicalSeo = async (pageUrl) => {
-  logSeoStep('Validating URL', pageUrl);
+const analyzeTechnicalSeoLegacy = async (pageUrl) => {
+  return analyzeTechnicalSeo(pageUrl);
+
   const targetUrl = await isPublicHttpUrl(pageUrl);
   
   // Try to render the page with Playwright - if this fails, we should not fall back to axios
   // as that would produce a deflated score on partial data
   try {
-    logSeoStep('Starting rendered snapshot');
     const renderedSnapshot = await renderPageSnapshot(targetUrl.toString());
-    logSeoStep('Rendered snapshot complete');
     
     const finalUrl = renderedSnapshot?.finalUrl || targetUrl.toString();
     const html = renderedSnapshot?.html || '';
@@ -952,10 +958,8 @@ const analyzeTechnicalSeo = async (pageUrl) => {
 
     const origin = new URL(finalUrl).origin;
     const robotsUrl = new URL('/robots.txt', origin).href;
-    logSeoStep('Fetching robots.txt', robotsUrl);
     const robotsPromise = fetchTextResource(robotsUrl, { timeoutMs: ROBOTS_TIMEOUT_MS, maxBytes: 250_000 });
     const robotsResult = await robotsPromise;
-    logSeoStep('robots.txt fetched');
     const robotsText = robotsResult.body || '';
 
     const sitemapUrls = [];
@@ -979,13 +983,11 @@ const analyzeTechnicalSeo = async (pageUrl) => {
     sitemapUrls.push(new URL('/sitemap_index.xml', origin).href);
     sitemapUrls.push(new URL('/sitemap-index.xml', origin).href);
 
-    logSeoStep('Scoring technical checks');
     const robots = scoreRobotsTxt(robotsResult);
     const sitemap = await scoreSitemap({ sitemapUrls });
     const canonical = scoreCanonical($, finalUrl);
     const metaTags = scoreMetaTags($);
     const schema = scoreSchema($);
-    logSeoStep('Technical checks scored');
 
     const checks = [
       {
@@ -1072,6 +1074,156 @@ const analyzeTechnicalSeo = async (pageUrl) => {
     error.statusCode = 400;
     throw error;
   }
+};
+
+const analyzeTechnicalSeo = async (pageUrl) => {
+  const targetUrl = await isPublicHttpUrl(pageUrl);
+
+  let renderedSnapshot;
+  let renderErrorMessage = '';
+  try {
+    renderedSnapshot = await withTimeout(
+      renderPageSnapshot(targetUrl.toString()),
+      ANALYSIS_TIMEOUT_MS,
+      'Browser render timed out.'
+    );
+  } catch (renderError) {
+    renderErrorMessage = renderError?.message || 'Browser render failed.';
+  }
+
+  if (!renderedSnapshot) {
+    renderedSnapshot = await fetchRawPageSnapshot(targetUrl.toString());
+    renderedSnapshot.analysisError =
+      renderErrorMessage || (isChromiumAvailable() ? 'Browser render failed.' : 'Chromium browser is not available at runtime.');
+  }
+
+  const finalUrl = renderedSnapshot?.finalUrl || targetUrl.toString();
+  const html = renderedSnapshot?.html || '';
+  const $ = cheerio.load(html || '');
+  const richText = extractRichText(html);
+  const needsMirror =
+    richText.length < MIRROR_MIN_CONTENT_LENGTH || (renderedSnapshot?.analysisMode !== 'rendered' && richText.length < 900);
+  const mirrorPromise = needsMirror ? fetchReadableMirror(finalUrl || targetUrl.toString()) : Promise.resolve('');
+  const mirrorText = await mirrorPromise;
+  const baseVisibleText = renderedSnapshot?.bodyText || extractVisibleText(html) || richText;
+  const baseContentText = renderedSnapshot?.filteredText || renderedSnapshot?.bodyText || richText || extractVisibleText(html);
+  const visibleText = normalizeWhitespace(
+    mirrorText && baseVisibleText.length < MIRROR_MIN_CONTENT_LENGTH ? mirrorText : baseVisibleText
+  );
+  const contentText = normalizeWhitespace(
+    mirrorText && baseContentText.length < MIRROR_MIN_CONTENT_LENGTH ? mirrorText : baseContentText
+  );
+
+  const origin = new URL(finalUrl).origin;
+  const robotsUrl = new URL('/robots.txt', origin).href;
+  const robotsResult = await fetchTextResource(robotsUrl, { timeoutMs: ROBOTS_TIMEOUT_MS, maxBytes: 250_000 });
+  const robotsText = robotsResult.body || '';
+
+  const sitemapUrls = [];
+  const robotsSitemaps = [...(robotsText.match(/^sitemap:\s*(.+)$/gim) || [])]
+    .map((line) => line.split(/sitemap:\s*/i)[1])
+    .map((value) => normalizeWhitespace(value))
+    .filter(Boolean);
+
+  const resolvedRobotsSitemaps = robotsSitemaps
+    .map((item) => {
+      try {
+        return new URL(item, origin).href;
+      } catch (error) {
+        return '';
+      }
+    })
+    .filter(Boolean);
+
+  sitemapUrls.push(...resolvedRobotsSitemaps);
+  sitemapUrls.push(new URL('/sitemap.xml', origin).href);
+  sitemapUrls.push(new URL('/sitemap_index.xml', origin).href);
+  sitemapUrls.push(new URL('/sitemap-index.xml', origin).href);
+
+  const robots = scoreRobotsTxt(robotsResult);
+  const sitemap = await scoreSitemap({ sitemapUrls });
+  const canonical = scoreCanonical($, finalUrl);
+  const metaTags = scoreMetaTags($);
+  const schema = scoreSchema($);
+
+  const checks = [
+    {
+      key: 'robots',
+      label: 'robots.txt',
+      status: robots.status,
+      score: robots.score,
+      weight: 20,
+      explanation: robots.explanation,
+      evidence: robots.evidence
+    },
+    {
+      key: 'sitemap',
+      label: 'Sitemap',
+      status: sitemap.status,
+      score: sitemap.score,
+      weight: 20,
+      explanation: sitemap.explanation,
+      evidence: sitemap.evidence
+    },
+    {
+      key: 'canonical',
+      label: 'Canonical',
+      status: canonical.status,
+      score: canonical.score,
+      weight: 20,
+      explanation: canonical.explanation,
+      evidence: canonical.evidence
+    },
+    {
+      key: 'metaTags',
+      label: 'Meta tags',
+      status: metaTags.status,
+      score: metaTags.score,
+      weight: 20,
+      explanation: metaTags.explanation,
+      evidence: metaTags.evidence
+    },
+    {
+      key: 'schema',
+      label: 'Schema',
+      status: schema.status,
+      score: schema.score,
+      weight: 20,
+      explanation: schema.explanation,
+      evidence: schema.evidence
+    }
+  ];
+
+  const score = clamp(checks.reduce((sum, item) => sum + (item.score * item.weight) / 100, 0));
+  const coverage = deriveCoverage({
+    analysisMode: renderedSnapshot?.analysisMode || 'raw',
+    checks
+  });
+  const limited = coverage !== 'full';
+
+  return {
+    contentText,
+    visibleText,
+    technicalSeo: {
+      score,
+      coverage,
+      limited,
+      checks,
+      evidence: {
+        finalUrl,
+        canonicalUrl: canonical.canonicalUrl || '',
+        robotsUrl,
+        sitemapUrls: [...new Set(sitemapUrls)],
+        schemaCount: schema.schemaCount || 0,
+        analysisMode: renderedSnapshot?.analysisMode || 'raw',
+        coverage,
+        limited,
+        title: renderedSnapshot?.title || '',
+        description: renderedSnapshot?.description || '',
+        contentLength: contentText.length
+      }
+    }
+  };
 };
 
 module.exports = {
