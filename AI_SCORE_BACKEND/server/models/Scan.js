@@ -69,5 +69,6 @@ const ScanSchema = new mongoose.Schema(
 
 ScanSchema.index({ userId: 1, createdAt: -1 });
 ScanSchema.index({ createdAt: -1 });
+ScanSchema.index({ inputType: 1, status: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Scan', ScanSchema);

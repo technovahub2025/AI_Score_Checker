@@ -1,6 +1,5 @@
 const cheerio = require('cheerio');
 const dns = require('dns').promises;
-const { execFile } = require('child_process');
 const net = require('net');
 const { URL } = require('url');
 const { normalizeWhitespace } = require('./scanService');
@@ -25,16 +24,35 @@ const MIRROR_MIN_CONTENT_LENGTH = 400;
 const DNS_CACHE_TTL_MS = 30 * 60 * 1000;
 const RESOURCE_CACHE_TTL_MS = 5 * 60 * 1000;
 const MIRROR_CACHE_TTL_MS = 10 * 60 * 1000;
+const DNS_LOOKUP_TIMEOUT_MS = 5000;
+const BROWSER_LAUNCH_TIMEOUT_MS = 20000;
 
 const PRIVATE_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
 let browserPromise = null;
 let browserInstance = null;
-let browserInstallPromise = null;
 const dnsCache = new Map();
 const resourceCache = new Map();
 const mirrorCache = new Map();
 
 const clamp = (value) => Math.max(0, Math.min(100, Math.round(value)));
+
+const logSeoStep = (...args) => {
+  console.log('[technical-seo]', ...args);
+};
+
+const withTimeout = async (promise, timeoutMs, label) => {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+      })
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
 
 const setCacheEntry = (cache, key, value, ttlMs) => {
   cache.set(key, {
@@ -113,7 +131,11 @@ const isPublicHttpUrl = async (inputUrl) => {
     throw error;
   }
 
-  const resolved = await dns.lookup(hostname, { all: true, verbatim: true });
+  const resolved = await withTimeout(
+    dns.lookup(hostname, { all: true, verbatim: true }),
+    DNS_LOOKUP_TIMEOUT_MS,
+    `DNS lookup for ${hostname}`
+  );
   if (!resolved.length || resolved.some((item) => isPrivateAddress(item.address))) {
     const error = new Error('Private or local URLs are not supported.');
     error.statusCode = 400;
@@ -157,51 +179,12 @@ const getBrowser = async () => {
   return browserPromise;
 };
 
-const installChromium = async () => {
-  if (browserInstallPromise) {
-    return browserInstallPromise;
-  }
-
-  browserInstallPromise = new Promise((resolve, reject) => {
-    const child = execFile(
-      process.platform === 'win32' ? 'npx.cmd' : 'npx',
-      ['--yes', 'playwright', 'install', 'chromium'],
-      {
-        env: {
-          ...process.env,
-          CI: '1'
-        },
-        windowsHide: true
-      },
-      (error, stdout, stderr) => {
-        if (stdout) {
-          console.log(stdout);
-        }
-        if (stderr) {
-          console.log(stderr);
-        }
-
-        if (error) {
-          reject(error);
-          return;
-        }
-
-        resolve();
-      }
-    );
-
-    child.on('error', reject);
-  }).catch((error) => {
-    browserInstallPromise = null;
-    throw error;
-  });
-
-  return browserInstallPromise;
-};
-
 const launchBrowser = async () => {
   try {
-    return await getBrowser();
+    logSeoStep('Launching browser');
+    const browser = await withTimeout(getBrowser(), BROWSER_LAUNCH_TIMEOUT_MS, 'Browser launch');
+    logSeoStep('Browser launched');
+    return browser;
   } catch (error) {
     const message = String(error?.message || '');
     const missingBrowser =
@@ -215,11 +198,37 @@ const launchBrowser = async () => {
       throw error;
     }
 
-    await installChromium();
-    browserPromise = null;
-    return getBrowser();
+    const browserError = new Error(
+      'Chromium browser is not available at runtime. Install it during build (postinstall) rather than inside a request.'
+    );
+    browserError.statusCode = 503;
+    throw browserError;
   }
 };
+
+const closeBrowser = async () => {
+  if (!browserInstance) {
+    return;
+  }
+
+  const browser = browserInstance;
+  browserInstance = null;
+  browserPromise = null;
+
+  try {
+    await browser.close();
+  } catch (error) {
+    logSeoStep('Browser close failed', error.message || error);
+  }
+};
+
+process.once('SIGTERM', () => {
+  void closeBrowser();
+});
+
+process.once('SIGINT', () => {
+  void closeBrowser();
+});
 
 const extractRenderedSignals = async (page) => {
   return page.evaluate(() => {
@@ -253,10 +262,11 @@ const extractRenderedSignals = async (page) => {
 
 const renderPageSnapshot = async (pageUrl) => {
   const browser = await launchBrowser();
+  logSeoStep('Creating browser context for', pageUrl);
   const context = await browser.newContext({
     viewport: RENDER_VIEWPORT,
-      userAgent:
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+    userAgent:
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
     extraHTTPHeaders: {
       'Accept-Language': 'en-US,en;q=0.9'
     }
@@ -265,14 +275,17 @@ const renderPageSnapshot = async (pageUrl) => {
   const page = await context.newPage();
 
   try {
+    logSeoStep('Opening page', pageUrl);
     await page.goto(pageUrl, {
       waitUntil: 'domcontentloaded',
       timeout: RENDER_TIMEOUT_MS
     });
+    logSeoStep('Page loaded', page.url() || pageUrl);
 
     await page.waitForLoadState('networkidle', { timeout: RENDER_IDLE_TIMEOUT_MS }).catch(() => {});
     await page.waitForTimeout(1000).catch(() => {});
 
+    logSeoStep('Extracting HTML and rendered signals');
     const [html, signals] = await Promise.all([
       page.content().catch(() => ''),
       extractRenderedSignals(page).catch(() => ({
@@ -284,6 +297,7 @@ const renderPageSnapshot = async (pageUrl) => {
         paragraphCount: 0
       }))
     ]);
+    logSeoStep('HTML extraction complete');
 
     return {
       html,
@@ -518,9 +532,10 @@ const fetchReadableMirror = async (pageUrl) => {
   ];
 
   for (const candidate of candidates) {
+    let timeout;
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(new Error('Mirror request timed out.')), MIRROR_TIMEOUT_MS);
+      timeout = setTimeout(() => controller.abort(new Error('Mirror request timed out.')), MIRROR_TIMEOUT_MS);
       const response = await fetch(candidate, {
         method: 'GET',
         signal: controller.signal,
@@ -528,7 +543,6 @@ const fetchReadableMirror = async (pageUrl) => {
           Accept: 'text/plain'
         }
       });
-      clearTimeout(timeout);
 
       if (!response.ok) {
         continue;
@@ -542,6 +556,8 @@ const fetchReadableMirror = async (pageUrl) => {
       }
     } catch (error) {
       void error;
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -910,12 +926,15 @@ const deriveCoverage = ({ analysisMode, checks }) => {
 };
 
 const analyzeTechnicalSeo = async (pageUrl) => {
+  logSeoStep('Validating URL', pageUrl);
   const targetUrl = await isPublicHttpUrl(pageUrl);
   
   // Try to render the page with Playwright - if this fails, we should not fall back to axios
   // as that would produce a deflated score on partial data
   try {
+    logSeoStep('Starting rendered snapshot');
     const renderedSnapshot = await renderPageSnapshot(targetUrl.toString());
+    logSeoStep('Rendered snapshot complete');
     
     const finalUrl = renderedSnapshot?.finalUrl || targetUrl.toString();
     const html = renderedSnapshot?.html || '';
@@ -933,8 +952,10 @@ const analyzeTechnicalSeo = async (pageUrl) => {
 
     const origin = new URL(finalUrl).origin;
     const robotsUrl = new URL('/robots.txt', origin).href;
+    logSeoStep('Fetching robots.txt', robotsUrl);
     const robotsPromise = fetchTextResource(robotsUrl, { timeoutMs: ROBOTS_TIMEOUT_MS, maxBytes: 250_000 });
     const robotsResult = await robotsPromise;
+    logSeoStep('robots.txt fetched');
     const robotsText = robotsResult.body || '';
 
     const sitemapUrls = [];
@@ -958,11 +979,13 @@ const analyzeTechnicalSeo = async (pageUrl) => {
     sitemapUrls.push(new URL('/sitemap_index.xml', origin).href);
     sitemapUrls.push(new URL('/sitemap-index.xml', origin).href);
 
+    logSeoStep('Scoring technical checks');
     const robots = scoreRobotsTxt(robotsResult);
     const sitemap = await scoreSitemap({ sitemapUrls });
     const canonical = scoreCanonical($, finalUrl);
     const metaTags = scoreMetaTags($);
     const schema = scoreSchema($);
+    logSeoStep('Technical checks scored');
 
     const checks = [
       {

@@ -8,51 +8,67 @@ const { getCachedScanResult, setCachedScanResult, normalizeScanCacheKey } = requ
 const { normalizeUrl } = require('../utils/normalizeUrl');
 
 const createScan = async (req, res, next) => {
+  const startedAt = Date.now();
+
   try {
     const { inputUrl } = req.body;
-    
-    // Normalize the URL using our new utility
+
+    console.log('[scan] request received', {
+      method: req.method,
+      path: req.originalUrl,
+      inputUrl
+    });
+
+    console.log('[scan] normalizing url');
     let normalizedUrl;
     try {
       normalizedUrl = normalizeUrl(inputUrl);
-      console.log('[scan] raw:', inputUrl, '→ normalized:', normalizedUrl);
+      console.log('[scan] url normalized', { raw: inputUrl, normalizedUrl });
     } catch (error) {
+      console.error('[scan] invalid url', { message: error.message });
       return sendError(res, `Invalid URL: ${error.message}`, 400);
     }
-    
-    // Check for recent scan in database (within last 60 seconds) to prevent duplicates
-    // We'll check for scans from the last 60 seconds and normalize their URLs to see if they match
+
+    console.log('[scan] checking recent scans');
     const sixtySecondsAgo = new Date(Date.now() - 60 * 1000);
     const recentScans = await Scan.find({
       inputType: 'url',
       status: 'completed',
       createdAt: { $gte: sixtySecondsAgo }
-    }).sort({ createdAt: -1 });
-    
-    // Check if any recent scan matches our normalized URL
+    })
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    console.log('[scan] recent scans loaded', { count: recentScans.length });
     for (const scan of recentScans) {
       try {
         const scannedNormalized = normalizeUrl(scan.inputUrl);
         if (scannedNormalized === normalizedUrl) {
-          console.log('[scan] returning recent scan for:', normalizedUrl);
+          console.log('[scan] returning recent scan', { normalizedUrl });
           return sendSuccess(res, scan, 200);
         }
       } catch (normalizeError) {
-        // If we can't normalize the stored URL, skip it
-        continue;
+        console.log('[scan] skipping un-normalizable scan url', {
+          id: scan._id?.toString?.() || String(scan._id || ''),
+          message: normalizeError.message
+        });
       }
     }
-    
+
+    console.log('[scan] validating cache key');
     const canonicalInputUrl = normalizeInputUrl(normalizedUrl);
     const normalizedInputUrl = normalizeScanCacheKey(canonicalInputUrl);
     const errors = validateScanInput({ inputUrl: normalizedUrl });
 
     if (errors.length) {
+      console.log('[scan] validation failed', { errors });
       return sendError(res, errors.join(' '), 400);
     }
 
+    console.log('[scan] checking cache');
     const cachedResult = getCachedScanResult(normalizedInputUrl);
     if (cachedResult) {
+      console.log('[scan] cache hit');
       const cachedScan = await Scan.create({
         inputType: 'url',
         inputUrl: canonicalInputUrl,
@@ -70,23 +86,28 @@ const createScan = async (req, res, next) => {
         recommendations: cachedResult.recommendations || []
       });
 
+      console.log('[scan] sending cached response', { elapsedMs: Date.now() - startedAt });
       return sendSuccess(res, cachedScan, 201);
     }
 
     let sourceText = '';
     let technicalSeo = null;
 
+    console.log('[scan] running technical analysis');
     const analysis = await analyzeTechnicalSeo(normalizedUrl);
+    console.log('[scan] technical analysis complete');
+
     sourceText = normalizeWhitespace(analysis.contentText || analysis.visibleText || '');
     technicalSeo = analysis.technicalSeo;
 
-    const scoreSource = sourceText;
-    const result = scoreContent(scoreSource);
+    console.log('[scan] scoring content');
+    const result = scoreContent(sourceText);
     const contentScore = result.totalScore;
     const technicalScore = technicalSeo?.score || 0;
     const totalScore = Math.round(contentScore * 0.75 + technicalScore * 0.25);
     const technicalCoverage = technicalSeo?.coverage || 'full';
 
+    console.log('[scan] saving scan');
     const scan = await Scan.create({
       inputType: 'url',
       inputUrl: canonicalInputUrl,
@@ -106,8 +127,14 @@ const createScan = async (req, res, next) => {
 
     setCachedScanResult(normalizedInputUrl, scan.toObject({ depopulate: true, versionKey: false }));
 
+    console.log('[scan] preparing response', { elapsedMs: Date.now() - startedAt });
     return sendSuccess(res, scan, 201);
   } catch (error) {
+    console.error('[scan] request failed', {
+      message: error.message,
+      stack: error.stack
+    });
+
     if (error.statusCode) {
       return sendError(res, error.message, error.statusCode);
     }
