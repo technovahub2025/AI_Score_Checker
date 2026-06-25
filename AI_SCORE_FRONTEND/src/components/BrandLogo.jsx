@@ -46,10 +46,7 @@ const BrandLogo = ({ variant = 'header', className = '' }) => {
            className={['block rounded-[0.85rem] object-cover object-top', size.icon].join(' ')}
          />
       </div>
-      <div className="hidden sm:block">
-        <p className={['uppercase tracking-[0.24em] text-text-muted', size.eyebrow].join(' ')}>AI Visibility</p>
-        <p className={['text-text', size.title].join(' ')}>Grand Helm</p>
-      </div>
+    
     </div>
   );
 };
