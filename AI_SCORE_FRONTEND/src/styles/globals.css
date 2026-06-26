@@ -16,6 +16,10 @@
   --gh-glow: rgba(139, 92, 246, 0.18);
 }
 
+
+
+
+
 :root[data-theme='light'] {
   --gh-bg: #f5f0e8;
   --gh-bg-elevated: #ffffff;
@@ -173,6 +177,31 @@ button {
   50% {
     transform: translate3d(24px, -18px, 0) scale(1.08);
   }
+}
+
+footer {
+    background-color: #1f2937;
+    color: #ffffff;
+    text-align: center;
+    padding: 15px 0;
+    font-size: 16px;
+    margin-top: 20px;
+}
+
+footer p {
+    margin: 0;
+}
+
+footer a {
+    color: #00bcd4;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+footer a:hover {
+    color: #ffffff;
+    text-decoration: underline;
 }
 
 @keyframes shimmer {

@@ -65,6 +65,9 @@ const App = () => {
           <Suspense fallback={<SkeletonLoader />}>{routes}</Suspense>
         </motion.main>
       </AnimatePresence>
+      <footer>
+        <p>Powered by <a href="https://www.technovahub.in">Technova hub</a></p>
+      </footer>
     </div>
   );
 };
