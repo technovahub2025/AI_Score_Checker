@@ -1,8 +1,5 @@
 const mongoose = require('mongoose');
-
-const isHostnameLike = (value) =>
-  /^(?=.{1,253}$)(?:www\.)?(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(?:[/?#].*)?$/i.test(value) ||
-  /^(?=.{1,253}$)(?:www\.)?(?:\d{1,3}\.){3}\d{1,3}(?:[/?#].*)?$/.test(value);
+const { normalizeUrl } = require('./normalizeUrl');
 
 const normalizeInputUrl = (value) => {
   const text = String(value || '').trim();
@@ -10,23 +7,12 @@ const normalizeInputUrl = (value) => {
     return '';
   }
 
-  if (/^http:\/\//i.test(text)) {
-    return '';
-  }
-
-  const candidate = /^https:\/\//i.test(text) ? text : `https://${text}`;
-
   try {
-    const url = new URL(candidate);
-    if (url.protocol !== 'https:') {
+    const normalized = normalizeUrl(text);
+    if (!/^https?:\/\//i.test(normalized)) {
       return '';
     }
-
-    if (!isHostnameLike(url.hostname)) {
-      return '';
-    }
-
-    return url.toString();
+    return normalized;
   } catch (error) {
     void error;
     return '';
